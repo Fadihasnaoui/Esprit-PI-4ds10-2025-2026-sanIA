@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# IDs and editors
+.vscode/
+.vs/
+*.swp
+*.swo
+
+# Project specific
+Data/
+DigitalTwinUnity/Artifacts/
+DigitalTwinUnity/Library/
+DigitalTwinUnity/Temp/
+DigitalTwinUnity/Obj/
+DigitalTwinUnity/Logs/
+DigitalTwinUnity/UserSettings/
+DigitalTwinUnity/MemoryCaptures/
+DigitalTwinUnity/Builds/
+
+# OS
+Thumbs.db
+Desktop.ini
