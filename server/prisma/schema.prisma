@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("FARMER") // ADMIN, FARMER
+  createdAt DateTime @default(now())
+  zones     Zone[]
+}
+
+model Zone {
+  id          String    @id @default(uuid())
+  name        String    // e.g., "Zone Nord-Est"
+  description String?
+  userId      String
+  user        User      @relation(fields: [userId], references: id)
+  cultures    Culture[]
+  sensors     Sensor[]
+  actions     Action[]
+  createdAt   DateTime  @default(now())
+}
+
+model Culture {
+  id        String   @id @default(uuid())
+  species   String   // Apple, Corn, Grape, Tomato
+  variety   String?  // e.g., "Golden Delicious"
+  status    String   @default("HEALTHY") // HEALTHY, DISEASED, STRESSED
+  zoneId    String
+  zone      Zone     @relation(fields: [zoneId], references: id)
+  plantedAt DateTime @default(now())
+}
+
+model Sensor {
+  id          String    @id @default(uuid())
+  type        String    // HUMIDITY, TEMPERATURE, SOIL_MOISTURE
+  macAddress  String    @unique
+  status      String    @default("ACTIVE") // ACTIVE, OFFLINE, MAINTENANCE
+  zoneId      String
+  zone        Zone      @relation(fields: [zoneId], references: id)
+  telemetry   Telemetry[]
+  createdAt   DateTime  @default(now())
+}
+
+model Telemetry {
+  id        String   @id @default(uuid())
+  value     Float
+  timestamp DateTime @default(now())
+  sensorId  String
+  sensor    Sensor   @relation(fields: [sensorId], references: id)
+
+  @@index([timestamp])
+}
+
+model Action {
+  id        String   @id @default(uuid())
+  type      String   // IRRIGATION, FERTILIZATION, SPRAYING
+  status    String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  triggeredBy String // AI, MANUAL
+  details   String?
+  zoneId    String
+  zone      Zone     @relation(fields: [zoneId], references: id)
+  createdAt DateTime @default(now())
+}

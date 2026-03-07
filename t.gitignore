@@ -1,0 +1,15 @@
+# Python
+venv/
+venv_tf/
+__pycache__/
+*.pyc
+
+# Unity
+Library/
+Temp/
+Obj/
+Build/
+
+# OS
+.DS_Store
+Thumbs.db
