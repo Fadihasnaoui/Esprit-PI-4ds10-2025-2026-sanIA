@@ -28,3 +28,14 @@ DigitalTwinUnity/Builds/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Project Big Folders
+Data/
+.venv/
+.vs/
+.vscode/
+DigitalTwinUnity/
+server/
+website/
+backend/
+

@@ -1,36 +1,60 @@
-# Sania AgriSmart Platform
+# Sania AgriSmart – Precision Agriculture Platform
 
-A production-style smart agriculture dashboard with role-based access control, real-time sensor monitoring, and livestock management.
+## Overview
+This project was developed as part of the PIDEV – 4th Year Engineering Program at **Esprit School of Engineering** (Academic Year 2025–2026).
+It consists of an integrated AI-powered platform for precision agriculture, featuring automated crop disease detection, irrigation forecasting, and a digital twin monitor to help Tunisian farmers optimize yield and reduce losses.
+
+## Features
+- **🌿 Crop Disease Detection:** Real-time identification of 15+ plant diseases using Deep Learning (CNNs), deployable offline via TFLite.
+- **📊 TDSP Pipeline:** Full data science lifecycle following the Team Data Science Process (Business Understanding to Deployment).
+- **💧 Irrigation Forecasting:** Predictive analytics for water management based on environmental data.
+- **🏗️ Digital Twin:** Interactive visualization of farm health and livestock monitoring.
+- **📱 Multi-platform Deployment:** REST API for web access and lightweight models for mobile edge devices.
 
 ## Tech Stack
-- **Backend:** FastAPI, SQLAlchemy, PostgreSQL, JWT Auth
-- **Frontend:** React, TypeScript, Tailwind CSS, Recharts, Leaflet
-- **DevOps:** Docker, Docker Compose
+### Frontend
+- React.js
+- TypeScript
+- Tailwind CSS
+- Recharts & Leaflet (Mapping)
 
-## Getting Started
-
-### Prerequisites
+### Backend
+- FastAPI (Python)
+- PostgreSQL
+- SQLAlchemy (ORM)
 - Docker & Docker Compose
 
-### Run the application
-```bash
-docker-compose up --build
+### AI & Data Science
+- TensorFlow / Keras
+- MobileNetV3, EfficientNet, ResNet
+- Pandas, NumPy, Scikit-learn
+- Seaborn & Matplotlib
+
+## Architecture
+```text
+ProjetPi/
+│
+├── 🌿 crop_disease_detection/      ← AI DSO: Crop Disease Detection
+│   ├── TDSP_Crop_Disease_Detection.ipynb  ← MAIN NOTEBOOK (5 TDSP phases)
+│   ├── src/                       ← Python source (models, trainer, config)
+│   ├── models/                    ← Trained model artifacts (.keras, .tflite)
+│   └── reports/figures/           ← Auto-generated analysis plots
+│
+├── backend/                        ← FastAPI REST API
+├── website/                        ← React Frontend
+├── Data/                           ← Shared datasets (Raw, Processed)
+├── DigitalTwin/                    ← Digital Twin module
+├── docker-compose.yml              ← Full-stack orchestration
+└── README.md                       ← This file
 ```
 
-## Credentials & Roles
-- **Cooperative Admin:** `admin@agrismart.tn` / `Admin123!`
-  - Can manage all farms, view global analytics, and register new cooperatives.
-- **Farmer (Mohamed):** `farmer@agrismart.tn` / `Farmer123!`
-  - Manages his own fields, sensors, livestock, and receives direct IA alerts.
+## Contributors
+- **4DS10 AI/ML Team** — Esprit School of Engineering
 
-## Key Features Implemented
-- 🛰️ **Geospatial Intelligence**: NDVI mapping and spatial polygon rendering.
-- 🐮 **Livestock Blockchain**: Full medical history, vaccinations, and treatment tracking.
-- 🌍 **IA Disease Detection**: Image analysis logs with confidence scoring.
-- 💧 **Precision Irrigation**: Real-time telemetry monitoring and water usage tracking.
-- 🔔 **Smarter Alerting**: Priority-based notifications for critical farm events.
+## Academic Context
+Developed at **Esprit School of Engineering – Tunisia**
+PIDEV – 4A | 2025–2026
 
-## Deployment
-1. Run `docker-compose up --build`.
-2. Populate data: `docker exec -it sania_backend python scripts/seed.py`.
-3. Access UI at `http://localhost:3000`.
+## Acknowledgments
+- Supervisors and Faculty at **Esprit School of Engineering**.
+- The open-source community for providing the underlying deep learning and web frameworks.

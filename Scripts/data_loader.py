@@ -1,6 +1,7 @@
 import tensorflow as tf
 import os
 from pathlib import Path
+from config import IMG_SIZE, BATCH_SIZE
 
 def build_balanced_train_loader(train_dir, img_size=(224, 224), batch_size=32):
     """
@@ -83,22 +84,16 @@ def build_standard_evaluation_loader(data_dir, img_size=(224, 224), batch_size=3
 
 
 if __name__ == "__main__":
-    # Define paths relative to the project root
-    ROOT_DIR = Path(__file__).resolve().parent.parent
-    DATA_DIR = ROOT_DIR / "Data" / "Processed" / "Split_Dataset"
-    
-    TRAIN_DIR = DATA_DIR / "train"
-    VAL_DIR = DATA_DIR / "val"
-    TEST_DIR = DATA_DIR / "test"
+    from config import TRAIN_DIR, VAL_DIR, TEST_DIR
     
     print("\n--- BUILDING BALANCED TRAINING LOADER ---")
-    train_loader, classes = build_balanced_train_loader(TRAIN_DIR, batch_size=32)
+    train_loader, classes = build_balanced_train_loader(TRAIN_DIR, batch_size=BATCH_SIZE)
     
     print("\n--- BUILDING VALIDATION LOADER ---")
-    val_loader = build_standard_evaluation_loader(VAL_DIR, batch_size=32)
+    val_loader = build_standard_evaluation_loader(VAL_DIR, batch_size=BATCH_SIZE)
     
     print("\n--- BUILDING TEST LOADER ---")
-    test_loader = build_standard_evaluation_loader(TEST_DIR, batch_size=32)
+    test_loader = build_standard_evaluation_loader(TEST_DIR, batch_size=BATCH_SIZE)
     
     print(f"\nSuccessfully loaded {len(classes)} classes in perfect balance!")
     print("The Data Loaders are officially completed and ready for the modeling phase.")
