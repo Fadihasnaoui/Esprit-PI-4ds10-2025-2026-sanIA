@@ -39,3 +39,8 @@ server/
 website/
 backend/
 
+
+crop_disease_detection/models/
+crop_disease_detection/data/
+crop_disease_detection/reports/logs/
+
