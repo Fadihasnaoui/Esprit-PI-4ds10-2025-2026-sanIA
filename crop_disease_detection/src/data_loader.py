@@ -53,6 +53,7 @@ def build_balanced_train_loader(train_dir, img_size=(224, 224), batch_size=32):
             lambda x, idx=label_idx: (_decode(x), tf.constant(idx, tf.int32)),
             num_parallel_calls=tf.data.AUTOTUNE
         )
+        ds = ds.cache()           # Cache images in memory after first decoding
         ds = ds.repeat()          # infinite stream for this class
         streams.append(ds)
 

@@ -67,7 +67,13 @@ def train_two_phase(architecture: str, train_ds, val_ds) -> tuple:
     model, base_model = build_model(architecture)
 
     # ── Phase 1: Train head only ─────────────────────────────────────────────
-    log.info(f"   Phase 1 — head warm-up  ({PHASE_1_EPOCHS} epochs, LR={PHASE_1_LR})")
+    # Ensure steps_per_epoch is set to prevent infinite loops with repeated datasets
+    actual_steps = STEPS_PER_EPOCH
+    if actual_steps is None:
+        # Fallback calculation if config didn't reload: (13719 images / 32 batch)
+        actual_steps = 428
+    
+    log.info(f"   Phase 1 — head warm-up  ({PHASE_1_EPOCHS} epochs, LR={PHASE_1_LR}, steps={actual_steps})")
     model.compile(
         optimizer=tf.keras.optimizers.Adam(PHASE_1_LR),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(),
@@ -75,7 +81,7 @@ def train_two_phase(architecture: str, train_ds, val_ds) -> tuple:
     )
     h1 = model.fit(
         train_ds,
-        steps_per_epoch=STEPS_PER_EPOCH,   # None → full dataset
+        steps_per_epoch=actual_steps,
         validation_data=val_ds,
         epochs=PHASE_1_EPOCHS,
         callbacks=_get_callbacks(patience_es=5, patience_lr=3),
@@ -83,7 +89,10 @@ def train_two_phase(architecture: str, train_ds, val_ds) -> tuple:
     )
 
     # ── Phase 2: Fine-tune entire model (with BatchNorm frozen) ─────────────
-    log.info(f"   Phase 2 — fine-tuning   ({PHASE_2_EPOCHS} epochs, LR={PHASE_2_LR})")
+    # Ensure steps_per_epoch is set
+    actual_steps = STEPS_PER_EPOCH or 428
+
+    log.info(f"   Phase 2 — fine-tuning   ({PHASE_2_EPOCHS} epochs, LR={PHASE_2_LR}, steps={actual_steps})")
     base_model.trainable = True          # unfreeze all layers …
     _freeze_batchnorm(base_model)        # … but keep BN stats frozen (critical!)
 
@@ -94,7 +103,7 @@ def train_two_phase(architecture: str, train_ds, val_ds) -> tuple:
     )
     h2 = model.fit(
         train_ds,
-        steps_per_epoch=STEPS_PER_EPOCH,
+        steps_per_epoch=actual_steps,
         validation_data=val_ds,
         epochs=PHASE_2_EPOCHS,
         callbacks=_get_callbacks(patience_es=3, patience_lr=2),
