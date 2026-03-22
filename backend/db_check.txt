@@ -1,8 +1,0 @@
-Users:
-[('bb54d33b74bc4816b6c5ff5e1a023e28', 'fellah@sania.ai', 'Fellah', 'aa2d978720dd11f1804a5cfb3aabd7bf')]
-
-Farms:
-[('aa2d978720dd11f1804a5cfb3aabd7bf', 'Ferme de Gronbalia')]
-
-Animals by farm:
-[('aa2d978720dd11f1804a5cfb3aabd7bf', 250)]
