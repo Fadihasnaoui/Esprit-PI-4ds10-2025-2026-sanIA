@@ -1,42 +1,60 @@
-from pydantic_settings import BaseSettings  # type: ignore
+from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore
 from typing import Optional
 import os
 
 class Settings(BaseSettings):
+    # Support for .env files - Modern Pydantic V2 config
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding='utf-8', 
+        extra='ignore',
+        case_sensitive=True
+    )
+
     PROJECT_NAME: str = "Sania Smart Agriculture"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "SUPER_SECRET_KEY_DONT_USE_IN_PROD")
+    SECRET_KEY: str = "SUPER_SECRET_KEY_DONT_USE_IN_PROD"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     ALGORITHM: str = "HS256"
     
-    # Database
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "sania_pass")
-    POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
-    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "sania_db")
-    DATABASE_URL: str = os.getenv("DATABASE_URL", f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}")
-
-    # Cloud Storage (MinIO/S3) for Drone Imagery
-    MINIO_ENDPOINT: str = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-    MINIO_ACCESS_KEY: str = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-    MINIO_SECRET_KEY: str = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-    MINIO_BUCKET_IMAGES: str = os.getenv("MINIO_BUCKET_IMAGES", "sania-drone-images")
-    MINIO_SECURE: bool = os.getenv("MINIO_SECURE", "False").lower() == "true"
-
-    # AI & LLM (GPT-4o / RAG Pipeline)
-    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o")
-    VECTOR_DB_URL: str = os.getenv("VECTOR_DB_URL", "http://localhost:8080")  # Weaviate or similar
+    # Databases - if DATABASE_URL is in .env, Pydantic loads it into this field
+    # If not, components will be used.
+    DATABASE_URL_ENV: Optional[str] = os.getenv("DATABASE_URL")
     
-    # IoT (MQTT for Sensors/Valves)
-    MQTT_BROKER_URL: str = os.getenv("MQTT_BROKER_URL", "mqtt://localhost:1883")
-    MQTT_TOPIC_SENSORS: str = "sania/sensors/#"
+    # Components if DATABASE_URL is not set
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "sania_pass"
+    POSTGRES_SERVER: str = "" # Empty defaults to SQLite
+    POSTGRES_PORT: str = "5432"
+    POSTGRES_DB: str = "sania_db"
 
-    class Config:
-        case_sensitive = True
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        # 1. Check if DATABASE_URL is provided (explicit or from .env field)
+        url = self.DATABASE_URL_ENV
+        
+        # 2. Fallback to building from individual components
+        if not url and self.POSTGRES_SERVER:
+            url = f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            
+        # 3. Last fallback: SQLite
+        if not url:
+            return "sqlite:///./sania_local.db"
+            
+        # 4. Standardize for SQLAlchemy
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif url.startswith("postgresql://") and "+psycopg2" not in url:
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+            
+        return url
+
+    # This field will be the final one used by the app
+    DATABASE_URL: str = ""
 
 settings = Settings()
+# Update the final internal URL with the computed one
+settings.DATABASE_URL = settings.SQLALCHEMY_DATABASE_URI

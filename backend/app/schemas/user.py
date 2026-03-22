@@ -6,18 +6,20 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr
     name: Optional[str] = None
-    role: str = "FARMER"  # Options: FARMER, EXPERT (Agronomist), COOPERATIVE, ADMIN
+    role: str = "FARMER"
+    cooperative_id: Optional[str] = None
+    farm_id: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
-    cooperative_id: Optional[str] = None
-    farm_id: Optional[str] = None
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     role: Optional[str] = None
+    cooperative_id: Optional[str] = None
+    farm_id: Optional[str] = None
 
 class User(UserBase):
     id: str

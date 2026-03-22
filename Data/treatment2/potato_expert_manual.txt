@@ -1,0 +1,15 @@
+
+# International Potato Center (CIP) - Expert Guidelines
+# Crop: Potato
+# Topic: Late Blight (Phytophthora infestans)
+
+1. Identification & Action:
+Late blight is the most serious potato disease worldwide. Initial symptoms include irregularly shaped water-soaked lesions.
+
+2. Treatment Strategies:
+- Prevention: Plant only "Certified Virus-Free" seed tubers.
+- Chemical Intervention: Late blight is an 'oomycete', not a true fungus. Therefore, many standard fungicides do not work. Mefenoxam is highly effective but resistance is widespread. 
+- Weather Monitoring: Use the 'Simphyt' or 'Blight-Cast' models. If relative humidity stays above 90% for 10+ hours, immediate preventative application is required.
+
+3. FAO-56 Irrigation Insight:
+Potato root systems are shallow (0.4-0.6m). Soil moisture should never drop below 60% of field capacity during the tuber bulking stage. Deficiency leads to 'Common Scab' and reduced size.

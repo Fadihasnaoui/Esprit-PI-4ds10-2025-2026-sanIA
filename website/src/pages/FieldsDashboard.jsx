@@ -27,6 +27,10 @@ const FieldDetail = ({ field }) => {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!field.id || field.id.startsWith('aaa') || field.id.startsWith('ddd')) {
+        setLoadingSensors(false);
+        return;
+      }
       setLoadingSensors(true);
       const results = await Promise.allSettled([
         sensorService.getHistory(field.id, 7),

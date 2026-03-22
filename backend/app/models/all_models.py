@@ -1,10 +1,15 @@
 from sqlalchemy import Column, String, Float, Integer, ForeignKey, DateTime, Enum, Boolean, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 import enum
 from ..db.session import Base
+
+# Using String(36) for IDs to ensure compatibility with SQLite and other DBs
+# while maintaining UUID format.
+ID_TYPE = String(36)
+def generate_uuid():
+    return str(uuid.uuid4())
 
 class UserRole(str, enum.Enum):
     FARMER = "FARMER"
@@ -12,7 +17,7 @@ class UserRole(str, enum.Enum):
 
 class Cooperative(Base):
     __tablename__ = "cooperatives"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
     name = Column(String, index=True)
     location = Column(String)
     users = relationship("User", back_populates="cooperative")
@@ -20,20 +25,20 @@ class Cooperative(Base):
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
     name = Column(String)
     email = Column(String, unique=True, index=True)
     password_hash = Column(String)
     role = Column(Enum(UserRole), default=UserRole.FARMER)
-    cooperative_id = Column(UUID(as_uuid=True), ForeignKey("cooperatives.id"), nullable=True)
-    farm_id = Column(UUID(as_uuid=True), nullable=True)
+    cooperative_id = Column(ID_TYPE, ForeignKey("cooperatives.id"), nullable=True)
+    farm_id = Column(ID_TYPE, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     cooperative = relationship("Cooperative", back_populates="users")
 
 class Farm(Base):
     __tablename__ = "farms"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    cooperative_id = Column(UUID(as_uuid=True), ForeignKey("cooperatives.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    cooperative_id = Column(ID_TYPE, ForeignKey("cooperatives.id"))
     name = Column(String)
     location = Column(String)
     owner_name = Column(String)
@@ -45,8 +50,8 @@ class Farm(Base):
 
 class Field(Base):
     __tablename__ = "fields"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    farm_id = Column(UUID(as_uuid=True), ForeignKey("farms.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    farm_id = Column(ID_TYPE, ForeignKey("farms.id"))
     name = Column(String)
     crop_type = Column(String)
     area_ha = Column(Float)
@@ -60,8 +65,8 @@ class Field(Base):
 
 class SensorReading(Base):
     __tablename__ = "sensor_readings"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    field_id = Column(UUID(as_uuid=True), ForeignKey("fields.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    field_id = Column(ID_TYPE, ForeignKey("fields.id"))
     soil_moisture = Column(Float)
     temperature_c = Column(Float)
     humidity_pct = Column(Float)
@@ -70,8 +75,8 @@ class SensorReading(Base):
 
 class IrrigationLog(Base):
     __tablename__ = "irrigation_logs"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    field_id = Column(UUID(as_uuid=True), ForeignKey("fields.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    field_id = Column(ID_TYPE, ForeignKey("fields.id"))
     recommended_minutes = Column(Integer)
     executed_minutes = Column(Integer, nullable=True)
     water_estimate_m3 = Column(Float)
@@ -81,8 +86,8 @@ class IrrigationLog(Base):
 
 class DiseaseScan(Base):
     __tablename__ = "disease_scans"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    field_id = Column(UUID(as_uuid=True), ForeignKey("fields.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    field_id = Column(ID_TYPE, ForeignKey("fields.id"))
     image_url = Column(String)
     crop_type = Column(String)
     predicted_disease = Column(String)
@@ -92,8 +97,8 @@ class DiseaseScan(Base):
 
 class NDVIRecord(Base):
     __tablename__ = "ndvi_records"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    field_id = Column(UUID(as_uuid=True), ForeignKey("fields.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    field_id = Column(ID_TYPE, ForeignKey("fields.id"))
     ndvi_value = Column(Float)
     status = Column(String)
     captured_at = Column(DateTime(timezone=True))
@@ -101,21 +106,40 @@ class NDVIRecord(Base):
 
 class Animal(Base):
     __tablename__ = "animals"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    farm_id = Column(UUID(as_uuid=True), ForeignKey("farms.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    farm_id = Column(ID_TYPE, ForeignKey("farms.id"))
     tag_id = Column(String, unique=True)
     species = Column(String)
     breed = Column(String)
+    gender = Column(String)
     birth_date = Column(DateTime)
+    entry_date = Column(DateTime)
+    status = Column(String, default="Active") # Active, Sold, Dead, Sain, Malade, Critique
+    weight_kg = Column(Float, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     farm = relationship("Farm", back_populates="animals")
-    vaccinations = relationship("VaccinationLog", back_populates="animal")
-    treatments = relationship("TreatmentLog", back_populates="animal")
+    vaccinations = relationship("VaccinationLog", back_populates="animal", cascade="all, delete-orphan")
+    treatments = relationship("TreatmentLog", back_populates="animal", cascade="all, delete-orphan")
+    telemetry = relationship("AnimalTelemetry", back_populates="animal", cascade="all, delete-orphan")
+
+class AnimalTelemetry(Base):
+    __tablename__ = "animal_telemetry"
+    time = Column(DateTime(timezone=True), primary_key=True, default=func.now())
+    animal_id = Column(ID_TYPE, ForeignKey("animals.id"), primary_key=True)
+    heart_rate = Column(Float)
+    temperature_c = Column(Float, nullable=False)
+    activity_level = Column(String) # RESTING, EATING, WALKING, RUNNING
+    latitude = Column(Float)
+    longitude = Column(Float)
+    weight_kg = Column(Float, nullable=True)
+    animal = relationship("Animal", back_populates="telemetry")
 
 class VaccinationLog(Base):
     __tablename__ = "vaccination_logs"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    animal_id = Column(UUID(as_uuid=True), ForeignKey("animals.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    animal_id = Column(ID_TYPE, ForeignKey("animals.id"))
     vaccine_name = Column(String)
     dose = Column(String)
     vet_name = Column(String)
@@ -125,8 +149,8 @@ class VaccinationLog(Base):
 
 class TreatmentLog(Base):
     __tablename__ = "treatment_logs"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    animal_id = Column(UUID(as_uuid=True), ForeignKey("animals.id"))
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    animal_id = Column(ID_TYPE, ForeignKey("animals.id"))
     diagnosis = Column(String)
     medicine = Column(String)
     dosage = Column(String)
@@ -136,9 +160,9 @@ class TreatmentLog(Base):
 
 class Alert(Base):
     __tablename__ = "alerts"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    farm_id = Column(UUID(as_uuid=True), ForeignKey("farms.id"))
-    field_id = Column(UUID(as_uuid=True), ForeignKey("fields.id"), nullable=True)
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    farm_id = Column(ID_TYPE, ForeignKey("farms.id"))
+    field_id = Column(ID_TYPE, ForeignKey("fields.id"), nullable=True)
     type = Column(String)
     severity = Column(String)
     status = Column(String, default="open")

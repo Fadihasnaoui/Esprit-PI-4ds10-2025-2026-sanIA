@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = `http://${window.location.hostname}:8000/api/v1`;
+const API_URL = `http://127.0.0.1:8000/api/v1`;
 
 const api = axios.create({
   baseURL: API_URL,
@@ -22,7 +22,8 @@ export const authService = {
     const res = await api.post('/auth/login', params);
     localStorage.setItem('token', res.data.access_token);
     return res.data;
-  }
+  },
+  getMe: () => api.get('/auth/me'),
 };
 
 export const fieldService = {
@@ -43,7 +44,15 @@ export const alertService = {
 
 export const livestockService = {
   getAnimals: () => api.get('/animals/'),
+  getAnimal: (id) => api.get(`/animals/${id}`),
   addAnimal: (data) => api.post('/animals/', data),
+  updateAnimal: (id, data) => api.put(`/animals/${id}`, data),
+  deleteAnimal: (id) => api.delete(`/animals/${id}`),
+  getTelemetryHistory: (id, limit = 50) => api.get(`/animals/${id}/telemetry?limit=${limit}`),
+  addVaccination: (animalId, data) => api.post(`/animals/${animalId}/vaccinations`, data),
+  deleteVaccination: (logId) => api.delete(`/animals/vaccinations/${logId}`),
+  addTreatment: (animalId, data) => api.post(`/animals/${animalId}/treatments`, data),
+  deleteTreatment: (logId) => api.delete(`/animals/treatments/${logId}`),
 };
 
 export const diseaseService = {
@@ -53,6 +62,20 @@ export const diseaseService = {
 
 export const ndviService = {
   getHistory: (fieldId, weeks = 8) => api.get(`/ndvi/${fieldId}?weeks=${weeks}`),
+};
+
+export const aiService = {
+  uploadDoc: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/ai/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  getContext: () => api.get('/ai/context'),
+  clearContext: () => api.delete('/ai/context'),
+  // Chat is handled via fetch for streaming
+  getChatUrl: () => `${API_URL}/ai/chat`
 };
 
 export default api;

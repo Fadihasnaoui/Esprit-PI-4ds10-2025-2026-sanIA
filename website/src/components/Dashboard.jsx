@@ -172,14 +172,20 @@ const Dashboard = ({ onOpenAssistant }) => {
       if (scanRes.status === 'fulfilled') setScans(scanRes.value.data);
       
       if (fieldRes.status === 'fulfilled' && fieldRes.value.data.length > 0) {
+        const firstField = fieldRes.value.data[0];
         setFields(fieldRes.value.data);
-        // Fetch sensor data for the first field
-        try {
-          const sensorRes = await sensorService.getHistory(fieldRes.value.data[0].id, 1);
-          if (sensorRes.data.length > 0) {
-            setLatestSensor(sensorRes.data[0]);
+        
+        // Fix: Avoid calling history for placeholder IDs
+        if (firstField.id && !firstField.id.startsWith('aaa') && !firstField.id.startsWith('ddd')) {
+          try {
+            const sensorRes = await sensorService.getHistory(firstField.id, 1);
+            if (sensorRes.data.length > 0) {
+              setLatestSensor(sensorRes.data[0]);
+            }
+          } catch (e) {
+            console.warn("Could not fetch sensor history for initial field");
           }
-        } catch (e) {}
+        }
       }
     } catch (e) {
       console.error("Dashboard fetch error:", e);
@@ -213,6 +219,14 @@ const Dashboard = ({ onOpenAssistant }) => {
   const animatedAnimals = useCounter(animals.length);
   const animatedFields = useCounter(fields.length);
   const animatedArea = useCounter(totalArea);
+
+  useEffect(() => {
+    if (fields.length > 0 && fields[0].id && !fields[0].id.includes('aaaa')) {
+      sensorService.getHistory(fields[0].id, 1)
+        .then(res => { if (res.data.length > 0) setLatestSensor(res.data[0]); })
+        .catch(() => {});
+    }
+  }, [fields]);
 
   if (loading) {
     return (

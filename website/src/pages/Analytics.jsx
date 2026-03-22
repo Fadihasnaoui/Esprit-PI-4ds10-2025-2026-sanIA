@@ -84,7 +84,12 @@ const Analytics = () => {
 
   // Fetch sensor + NDVI for selected field
   useEffect(() => {
-    if (!selectedFieldId) return;
+    if (!selectedFieldId || selectedFieldId.startsWith('aaa') || selectedFieldId.startsWith('ddd')) {
+      setLoadingField(false);
+      setTelemetryData([]);
+      setNdviData([]);
+      return;
+    }
     const fetchFieldData = async () => {
       setLoadingField(true);
       const [sensorRes, ndviRes] = await Promise.allSettled([

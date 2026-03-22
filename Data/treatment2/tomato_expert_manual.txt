@@ -1,0 +1,18 @@
+
+# FAO & Cornell Agricultural Extension - Expert Guidelines
+# Crop: Tomato
+# Topic: Integrated Disease Management (IDM)
+
+Overview:
+Successful tomato disease management requires an integrated approach. Relying solely on fungicides leads to resistance.
+
+1. Biological Life Cycle of Early Blight (Alternaria solani):
+Early blight is favored by heavy dews, frequent rains, and warm temperatures. The fungus overwinters in crop debris. Spores (conidia) are produced when temperatures reach 24-29°C.
+
+2. Professional Treatment Recommendations:
+- Resistance Management: Do not apply Group 11 fungicides (like Azoxystrobin) more than twice in a row. Rotate with Group M05 (Chlorothalonil).
+- Organic Control: Bacillus subtilis strain QST 713 (Serenade) has shown 65-75% efficacy when applied preventatively.
+- Irrigation: Drip irrigation redues leaf wetness duration (LWD), which is the primary driver of fungal outbreaks.
+
+3. FAO-56 Water Requirements:
+Tomato is a high-water-demand crop. Excessive water during the late season can lead to "Fruit Cracking" and "Bacterial Speck." The Crop Coefficient (Kc) drops to 0.8 during harvest to improve flavor concentration.
