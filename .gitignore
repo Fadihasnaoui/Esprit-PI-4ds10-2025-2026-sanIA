@@ -1,0 +1,31 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+# Data & DB
+Data/
+sania_local.db
+vector_index.bin
+metadata.pkl
+
+# Node
+node_modules/
+dist/
+build/
+.eslintcache
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]serSettings/
+
+# OS
+.DS_Store
+Thumbs.db
