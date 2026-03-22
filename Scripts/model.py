@@ -68,7 +68,7 @@ if __name__ == "__main__":
     
     print("\n--- 1. LOADING DATA ---")
     train_loader, classes = build_balanced_train_loader(TRAIN_DIR, batch_size=BATCH_SIZE)
-    val_loader = build_standard_evaluation_loader(VAL_DIR, batch_size=BATCH_SIZE)
+    val_loader = build_standard_evaluation_loader(VAL_DIR, class_names=classes, batch_size=BATCH_SIZE)
     
     print(f"\nDiscovered {len(classes)} distinct classes: {classes}")
     

@@ -11,8 +11,8 @@ def split_data(source_dir, dest_dir, train_ratio=0.8, val_ratio=0.1, test_ratio=
     for split in ['train', 'val', 'test']:
         (dest_path / split).mkdir(parents=True, exist_ok=True)
         
-    # Get ALL classes, including Background for real-world robustness
-    classes = [d for d in source_path.iterdir() if d.is_dir()]
+    # Get ALL classes, including Background for real-world robustness, ignoring hidden folders
+    classes = [d for d in source_path.iterdir() if d.is_dir() and not d.name.startswith('.')]
     
     total_copied = 0
     

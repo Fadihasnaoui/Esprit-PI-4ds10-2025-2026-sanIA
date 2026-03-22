@@ -7,8 +7,8 @@ def build_balanced_train_loader(train_dir, img_size=(224, 224), batch_size=32):
     Creates a perfectly balanced training Data Loader by implementing 
     Alternative 2: Weighted Random Sampling + Dynamic Augmentation.
     """
-    # TF automatically sorts subfolders alphabetically, so we do the same
-    class_names = sorted([d.name for d in Path(train_dir).iterdir() if d.is_dir()])
+    # TF automatically sorts subfolders alphabetically, so we do the same, ignoring hidden folders
+    class_names = sorted([d.name for d in Path(train_dir).iterdir() if d.is_dir() and not d.name.startswith('.')])
     num_classes = len(class_names)
     
     # 1. Define our Robustness Augmentation pipeline (this happens entirely in memory/GPU)
@@ -21,8 +21,11 @@ def build_balanced_train_loader(train_dir, img_size=(224, 224), batch_size=32):
     
     def decode_img(file_path):
         img = tf.io.read_file(file_path)
-        img = tf.io.decode_jpeg(img, channels=3) # Decode the JPGs
+        # Decode the image and ensure it has 3 channels. decode_image supports jpg, png, etc.
+        img = tf.io.decode_image(img, channels=3, expand_animations=False) 
+        # Resize requires a clearly defined shape, decode_image returns unknown shape
         img = tf.image.resize(img, [img_size[0], img_size[1]])
+        img.set_shape([img_size[0], img_size[1], 3])
         return img
 
     datasets = []
@@ -64,18 +67,20 @@ def build_balanced_train_loader(train_dir, img_size=(224, 224), batch_size=32):
     return balanced_ds, class_names
 
 
-def build_standard_evaluation_loader(data_dir, img_size=(224, 224), batch_size=32):
+def build_standard_evaluation_loader(data_dir, class_names, img_size=(224, 224), batch_size=32):
     """
     Standard Data Loader for Validation and Testing sets.
     Rule #1: NO class balancing (we want to test on the raw, true distributions).
     Rule #2: NO augmentation (we must test on pure, un-warped images).
+    Rule #3: MUST explicitly pass class_names to guarantee matching integer labels.
     """
     ds = tf.keras.utils.image_dataset_from_directory(
         data_dir,
         image_size=img_size,
         batch_size=batch_size,
         shuffle=False, # We don't need to shuffle validation/test sets during evaluation
-        label_mode='int'
+        label_mode='int',
+        class_names=class_names # Crucial for alignment!
     )
     
     ds = ds.prefetch(buffer_size=tf.data.AUTOTUNE)
@@ -92,10 +97,10 @@ if __name__ == "__main__":
     train_loader, classes = build_balanced_train_loader(TRAIN_DIR, batch_size=32)
     
     print("\n--- BUILDING VALIDATION LOADER ---")
-    val_loader = build_standard_evaluation_loader(VAL_DIR, batch_size=32)
+    val_loader = build_standard_evaluation_loader(VAL_DIR, class_names=classes, batch_size=32)
     
     print("\n--- BUILDING TEST LOADER ---")
-    test_loader = build_standard_evaluation_loader(TEST_DIR, batch_size=32)
+    test_loader = build_standard_evaluation_loader(TEST_DIR, class_names=classes, batch_size=32)
     
     print(f"\nSuccessfully loaded {len(classes)} classes in perfect balance!")
     print("The Data Loaders are officially completed and ready for the modeling phase.")

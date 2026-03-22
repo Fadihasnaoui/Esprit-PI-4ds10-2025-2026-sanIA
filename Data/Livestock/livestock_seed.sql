@@ -1,5 +1,5 @@
 -- Smart Farm Livestock Management - Sync v3.3 (Secure Async)
--- Auto-generated: 2026-03-21 15:41:32
+-- Auto-generated: 2026-03-22 16:19:17
 
 BEGIN;
 
@@ -251,7 +251,7 @@ INSERT INTO livestock (id, tag_number, species, breed, gender, birth_date, entry
   ('c6ccb4ae-8249-4de9-a9ef-63d583389583', 'COW-150', 'Cow', 'Simmental', 'Male', '2022-12-03', '2024-10-17', 'Active', 50.0, 36.6051575051741, 10.49391933947628),
   ('4f887a6c-4716-42ab-a408-52aa36dc3553', 'SHP-063', 'Sheep', 'Suffolk', 'Female', '2021-05-14', '2024-05-23', 'Active', 50.0, 36.59587477208008, 10.477331986338722),
   ('f3e6ced6-36b7-45f7-9b53-5ce9e22c8ae5', 'COW-001', 'Cow', 'Holstein', 'Male', '2022-01-17', '2024-11-09', 'Critique', 50.0, 36.59544713878175, 10.493041145810539),
-  ('e306b0ae-2047-418e-a7dd-4ca3375ca78c', 'hochaaaaaaaaaaaaaaaaaaaaaaaaa', 'Bovin', 'hajaaaa', 'Femelle', '2020-03-21', '2021-03-21', 'Critique', 200.0, 36.6, 10.49),
-  ('af63ae5e-c5b1-490e-878d-b737bcfeae3a', 'jdidddddddddddddddd', 'Bovin', 'aaaaaaaaaaaaaa', 'Femelle', '2026-03-21', '2026-03-21', 'Critique', 200.0, 36.9, 10.0);
+  ('af63ae5e-c5b1-490e-878d-b737bcfeae3a', 'jdidddddddddddddddd', 'Bovin', 'aaaaaaaaaaaaaa', 'Femelle', '2026-03-21', '2026-03-21', 'Critique', 100.0, 36.9, 10.0),
+  ('e306b0ae-2047-418e-a7dd-4ca3375ca78c', 'hochaaaaaaaaaaaaaaaaaaaaaaaaa', 'Bovin', 'hajaaaa', 'Femelle', '2020-03-21', '2021-03-21', 'Sain', 100.0, 36.6, 10.49);
 
 COMMIT;

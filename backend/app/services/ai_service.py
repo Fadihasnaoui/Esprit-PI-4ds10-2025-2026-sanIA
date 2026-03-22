@@ -7,20 +7,20 @@ from PIL import Image
 from pypdf import PdfReader
 from langchain_ollama import ChatOllama
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 class AIService:
     def __init__(self):
-        # Using local Ollama. We'll use 'llava' for vision and standard chat
-        # User needs to have ollama run llava and ollama run llama3
-        self.model_name = "llava" # Llava can do both chat and vision
+        print("🤖 Initializing AIService with Ollama (Llava)...")
+        self.model_name = "llava"
         self.chat_model = ChatOllama(model=self.model_name)
         
-        # Local embeddings using HuggingFace (No API key needed)
+        print("📥 Loading local embeddings (HuggingFace)... This may take a moment on first run.")
         self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        print("✅ AIService initialized successfully.")
         
         self.user_knowledge_bases: Dict[str, FAISS] = {}
         self.user_documents: Dict[str, List[str]] = {}
@@ -36,6 +36,7 @@ class AIService:
             await self._process_pdf(file_path, user_id)
         elif file_ext in [".jpg", ".jpeg", ".png"]:
             await self._process_image(file_path, user_id)
+
 
     async def _process_pdf(self, file_path: str, user_id: str):
         reader = PdfReader(file_path)
