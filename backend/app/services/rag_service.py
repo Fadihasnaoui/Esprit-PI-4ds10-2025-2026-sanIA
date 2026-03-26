@@ -236,30 +236,74 @@ def _retrieve(question: str, top_k: int = 5) -> List[Dict[str, Any]]:
     return results
 
 
+def _is_greeting(text: str) -> bool:
+    """Detects if the input is a simple greeting or social chat."""
+    greetings = {
+        "bonjour", "salut", "hello", "hi", "coucou", "hey",
+        "ca va", "ça va", "how are you", "comment vas-tu",
+        "merci", "thanks", "au revoir", "bye", "goodbye"
+    }
+    clean_text = text.lower().strip().replace("?", "").replace("!", "")
+    return any(g == clean_text for g in greetings)
+
+
 def query_rag(question: str) -> Dict[str, Any]:
-    """Retrieves context and calls LLM to generate an answer."""
+    """Retrieves context and calls LLM to generate an answer.
+    Bypasses retrieval for simple greetings.
+    """
+    
+    # 1. Intent Detection: Greetings & General Chat
+    if _is_greeting(question):
+        logger.info(f"Greeting detected: '{question}'. Bypassing RAG.")
+        prompt = f"""You are a friendly agricultural assistant for the Sania AgriSmart platform.
+The user just said: '{question}'. 
+Respond warmly, greet them in French, and ask how you can help with their farm today.
+Keep it very short."""
+        
+        try:
+            response = httpx.post(
+                f"{settings.OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": settings.OLLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "answer": data.get("response", "").strip(),
+                "sources": []
+            }
+        except Exception as e:
+            logger.error(f"Ollama direct generate failed: {e}")
+            return {"answer": "Bonjour ! Comment puis-je vous aider ?", "sources": []}
+
+    # 2. Technical Query: Full RAG Pipeline
     retrieved = _retrieve(question, top_k=5)
     
     if not retrieved:
         return {
             "answer": (
-                "⚠️ The knowledge index is empty or not built yet. "
-                "Please call POST /api/v1/rag/index if you have new files."
+                "⚠️ La base de connaissances est vide. "
+                "Veuillez indexer des documents via l'onglet Base de Connaissances."
             ),
             "sources": []
         }
 
     context = "\n\n---\n\n".join([item["content"] for item in retrieved])
 
-    prompt = f"""You are an expert agricultural assistant for the Sania AgriSmart platform.
-Use ONLY the following context to answer the question. If the answer is not in the context, say so.
+    prompt = f"""Vous êtes un assistant agricole expert pour la plateforme Sania AgriSmart.
+Utilisez UNIQUEMENT le contexte suivant pour répondre à la question. 
+Si la réponse n'est pas dans le contexte, dites-le poliment.
 
-CONTEXT:
+CONTEXTE:
 {context}
 
 QUESTION: {question}
 
-ANSWER:"""
+REPONSE:"""
 
     try:
         response = httpx.post(
