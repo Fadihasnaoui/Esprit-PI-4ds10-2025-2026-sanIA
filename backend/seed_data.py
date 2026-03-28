@@ -21,10 +21,12 @@ COOP_ID     = uuid.UUID("11111111-1111-1111-1111-111111111111")
 FARM_ID     = uuid.UUID("88888888-4444-4444-4444-121212121212")
 FARMER_ID   = uuid.UUID("22222222-2222-2222-2222-222222222222")
 FIELD_IDS   = [
-    uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+    uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb"),
     uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
     uuid.UUID("cccccccc-cccc-cccc-cccc-cccccccccccc"),
     uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+    uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+    uuid.UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 ]
 ANIMAL_IDS = [uuid.uuid4() for _ in range(8)]
 
@@ -71,7 +73,7 @@ def seed():
         fields_data = [
             {
                 "id": FIELD_IDS[0], "name": "Champ de Pomme de Terre Bizerte", "crop_type": "Potato", "area_ha": 12.5,
-                "polygon": [[34.742, 10.758], [34.745, 10.758], [34.745, 10.762], [34.742, 10.762]]
+                "polygon": [[37.252, 9.858], [37.255, 9.858], [37.255, 9.862], [37.252, 9.862]]
             },
             {
                 "id": FIELD_IDS[1], "name": "Vignoble du Cap Bon", "crop_type": "Grape", "area_ha": 8.3,
@@ -84,6 +86,14 @@ def seed():
             {
                 "id": FIELD_IDS[3], "name": "Verger de Pommiers Kasserine", "crop_type": "Apple", "area_ha": 15.0,
                 "polygon": [[35.232, 9.128], [35.235, 9.128], [35.235, 9.132], [35.232, 9.132]]
+            },
+            {
+                "id": FIELD_IDS[4], "name": "Grand champ de Sidi Bouzid", "crop_type": "Tomato", "area_ha": 12.0,
+                "polygon": [[34.950, 9.450], [34.955, 9.450], [34.955, 9.460], [34.950, 9.460]]
+            },
+            {
+                "id": FIELD_IDS[5], "name": "Céréales de Jendouba", "crop_type": "Potato", "area_ha": 30.0,
+                "polygon": [[36.500, 8.750], [36.505, 8.750], [36.505, 8.760], [36.500, 8.760]]
             },
         ]
         for fd in fields_data:
