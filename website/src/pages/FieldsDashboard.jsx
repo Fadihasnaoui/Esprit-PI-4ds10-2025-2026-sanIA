@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Map, Plus, ChevronRight, ChevronDown, Thermometer, Droplets, X, Leaf, Activity, Clock, Waves, BarChart3, RefreshCw } from 'lucide-react';
+import { Map, Plus, ChevronRight, ChevronDown, Thermometer, Droplets, X, Leaf, Activity, Clock, Waves, BarChart3, RefreshCw, Satellite } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { fieldService, sensorService, ndviService } from '../services/api';
+import FieldMap from '../components/FieldMap';
 
 const cropEmojis = { Tomato: '🍅', Grape: '🍇', Potato: '🥔', Apple: '🍎', default: '🌱' };
 
@@ -24,6 +25,17 @@ const FieldDetail = ({ field }) => {
   const [ndviData, setNdviData] = useState([]);
   const [irrigationLogs, setIrrigationLogs] = useState([]);
   const [loadingSensors, setLoadingSensors] = useState(true);
+  const [viewMode, setViewMode] = useState('charts'); // 'charts' or 'map'
+  const [showNdviOverlay, setShowNdviOverlay] = useState(false);
+  const [diagnosticData, setDiagnosticData] = useState(null);
+
+  useEffect(() => {
+    if (showNdviOverlay && !diagnosticData) {
+      ndviService.getSpatialDiagnostic(field.id)
+        .then(res => setDiagnosticData(res.data))
+        .catch(err => console.error("Error fetching NDVI diagnostic:", err));
+    }
+  }, [showNdviOverlay, field.id, diagnosticData]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,10 +83,48 @@ const FieldDetail = ({ field }) => {
       </div>
     );
   }
+  const polygon = field.polygon_geojson ? JSON.parse(field.polygon_geojson) : [];
 
   return (
     <div style={{ padding: '1rem 0', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Mini Stats */}
+      {/* View Toggle */}
+      <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--glass)', padding: '0.2rem', borderRadius: 'var(--radius-md)', width: 'fit-content' }}>
+        <button 
+          onClick={() => setViewMode('charts')} 
+          className={`btn ${viewMode === 'charts' ? 'btn-primary' : ''}`}
+          style={{ padding: '0.4rem 1rem', fontSize: '0.7rem', textTransform: 'none', background: viewMode === 'charts' ? undefined : 'transparent', color: viewMode === 'charts' ? undefined : 'var(--text-muted)' }}
+        >
+          <BarChart3 size={14} /> Graphiques
+        </button>
+        <button 
+          onClick={() => setViewMode('map')} 
+          className={`btn ${viewMode === 'map' ? 'btn-warm' : ''}`}
+          style={{ padding: '0.4rem 1rem', fontSize: '0.7rem', textTransform: 'none', background: viewMode === 'map' ? undefined : 'transparent', color: viewMode === 'map' ? undefined : 'var(--text-muted)' }}
+        >
+          <Map size={14} /> Carte NDVI
+        </button>
+      </div>
+
+      {viewMode === 'map' ? (
+        <div style={{ height: '400px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--glass-border)', position: 'relative' }}>
+          <FieldMap 
+            initialPolygon={polygon} 
+            showNdvi={showNdviOverlay} 
+            diagnosticData={diagnosticData}
+          />
+          <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 1000 }}>
+             <button 
+                onClick={() => setShowNdviOverlay(!showNdviOverlay)}
+                className={`btn ${showNdviOverlay ? 'btn-primary' : 'glass-card'}`}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.7rem', background: showNdviOverlay ? undefined : 'rgba(0,0,0,0.5)' }}
+             >
+                <Satellite size={14} /> {showNdviOverlay ? 'Désactiver Overlay NDVI' : 'Activer Diagnostic NDVI'}
+             </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Mini Stats */}
       {sensorData.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.8rem' }}>
           {[
@@ -215,11 +265,12 @@ const FieldDetail = ({ field }) => {
           </div>
         </div>
       )}
-
       {sensorData.length === 0 && ndviData.length === 0 && irrigationLogs.length === 0 && (
         <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', textAlign: 'center', padding: '2rem' }}>
           Aucune donnée disponible pour cette parcelle. Connectez des capteurs IoT pour commencer.
         </p>
+      )}
+        </>
       )}
     </div>
   );
@@ -276,7 +327,7 @@ const FieldsDashboard = () => {
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newField, setNewField] = useState({ name: '', crop_type: 'Tomato', area_ha: '' });
+  const [newField, setNewField] = useState({ name: '', crop_type: 'Tomato', area_ha: '', polygon: [] });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCrop, setFilterCrop] = useState('all');
 
@@ -293,10 +344,11 @@ const FieldsDashboard = () => {
     e.preventDefault();
     fieldService.createField({
       ...newField, area_ha: parseFloat(newField.area_ha),
-      farm_id: '88888888-4444-4444-4444-121212121212', polygon_geojson: '[]'
+      farm_id: '88888888-4444-4444-4444-121212121212', 
+      polygon_geojson: JSON.stringify(newField.polygon)
     }).then(() => {
       setIsModalOpen(false);
-      setNewField({ name: '', crop_type: 'Tomato', area_ha: '' });
+      setNewField({ name: '', crop_type: 'Tomato', area_ha: '', polygon: [] });
       fetchFields();
     }).catch(err => alert("Erreur: " + err.message));
   };
@@ -376,7 +428,7 @@ const FieldsDashboard = () => {
       {/* Modal */}
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="animate-scale-in" style={{ width: '420px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--glass-border)', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+          <div className="animate-scale-in" style={{ width: '900px', maxWidth: '95vw', background: 'var(--bg-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--glass-border)', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
             <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, rgba(199,91,57,0.08), rgba(212,168,67,0.05))' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <span style={{ fontSize: '1.3rem' }}>🌿</span>
@@ -386,27 +438,39 @@ const FieldsDashboard = () => {
                 <X size={16} />
               </button>
             </div>
-            <form onSubmit={handleCreateField} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Nom de la parcelle</label>
-                <input type="text" placeholder="ex: Oliveraie de Sfax" required value={newField.name} onChange={e => setNewField({...newField, name: e.target.value})} style={inputStyle} />
+            <form onSubmit={handleCreateField} style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Nom de la parcelle</label>
+                  <input type="text" placeholder="ex: Oliveraie de Sfax" required value={newField.name} onChange={e => setNewField({...newField, name: e.target.value})} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Type de culture</label>
+                  <select value={newField.crop_type} onChange={e => setNewField({...newField, crop_type: e.target.value})} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option value="Tomato">🍅 Tomate</option>
+                    <option value="Grape">🍇 Vigne</option>
+                    <option value="Potato">🥔 Pomme de terre</option>
+                    <option value="Apple">🍎 Pommier</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Surface (hectares)</label>
+                  <input type="number" step="0.1" placeholder="ex: 5.2" required value={newField.area_ha} onChange={e => setNewField({...newField, area_ha: e.target.value})} style={inputStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem' }}>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline" style={{ flex: 1, borderRadius: 'var(--radius-full)' }}>Annuler</button>
+                  <button type="submit" className="btn btn-warm" style={{ flex: 1, borderRadius: 'var(--radius-full)' }} disabled={newField.polygon.length < 3}><Plus size={16} /> Créer</button>
+                </div>
+                {newField.polygon.length < 3 && (
+                  <p style={{ fontSize: '0.65rem', color: 'var(--terracotta)', textAlign: 'center' }}>Veuillez délimiter la parcelle sur la carte (min. 3 points)</p>
+                )}
               </div>
-              <div>
-                <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Type de culture</label>
-                <select value={newField.crop_type} onChange={e => setNewField({...newField, crop_type: e.target.value})} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  <option value="Tomato">🍅 Tomate</option>
-                  <option value="Grape">🍇 Vigne</option>
-                  <option value="Potato">🥔 Pomme de terre</option>
-                  <option value="Apple">🍎 Pommier</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem', display: 'block', fontWeight: '600' }}>Surface (hectares)</label>
-                <input type="number" step="0.1" placeholder="ex: 5.2" required value={newField.area_ha} onChange={e => setNewField({...newField, area_ha: e.target.value})} style={inputStyle} />
-              </div>
-              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-outline" style={{ flex: 1, borderRadius: 'var(--radius-full)' }}>Annuler</button>
-                <button type="submit" className="btn btn-warm" style={{ flex: 1, borderRadius: 'var(--radius-full)' }}><Plus size={16} /> Créer</button>
+              <div style={{ height: '400px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+                <FieldMap 
+                  isEditable={true} 
+                  initialPolygon={newField.polygon} 
+                  onPolygonChange={(poly) => setNewField({...newField, polygon: poly})} 
+                />
               </div>
             </form>
           </div>

@@ -11,8 +11,19 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Anti-cache : Ajoute un timestamp à chaque requête GET
+  if (config.method === 'get') {
+    config.params = {
+      ...config.params,
+      _t: Date.now()
+    };
+  }
+  
+  console.log(`[API REQUEST] => ${config.method.toUpperCase()} ${config.url}`);
   return config;
 });
+
 
 export const authService = {
   login: async (username, password) => {
@@ -53,6 +64,7 @@ export const diseaseService = {
 
 export const ndviService = {
   getHistory: (fieldId, weeks = 8) => api.get(`/ndvi/${fieldId}?weeks=${weeks}`),
+  getSpatialDiagnostic: (fieldId) => api.get(`/ndvi/${fieldId}/spatial-diagnostic`),
 };
 
 export default api;

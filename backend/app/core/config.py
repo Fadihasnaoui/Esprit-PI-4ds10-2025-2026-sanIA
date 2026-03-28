@@ -36,7 +36,12 @@ class Settings(BaseSettings):
     MQTT_BROKER_URL: str = os.getenv("MQTT_BROKER_URL", "mqtt://localhost:1883")
     MQTT_TOPIC_SENSORS: str = "sania/sensors/#"
 
+    # API Keys
+    AGROMONITORING_API_KEY: Optional[str] = os.getenv("AGROMONITORING_API_KEY")
+
     class Config:
         case_sensitive = True
+        env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()
