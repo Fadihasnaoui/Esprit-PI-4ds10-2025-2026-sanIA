@@ -1,0 +1,14 @@
+
+# Penn State Tree Fruit Production Guide
+# Crop: Apple (Malus domestica)
+# Topic: Apple Scab (Venturia inaequalis)
+
+1. Biology:
+Apple scab is driven by the 'Mills Table', which correlates leaf wetness duration and temperature to infection risk.
+
+2. Management:
+- Post-Harvest: Apply 5% urea solution to trees just before leaf fall. This speed up leaf decomposition, preventing the fungus from overwintering.
+- Fungicides: Captan is the gold standard protectant but has no curative (kick-back) activity. For curative action, use DMIs within 72 hours of the infection event.
+
+3. Irrigation Needs:
+Kc_mid (peak) for apples is 0.95. Modern high-density orchards (Tall Spindle) require consistent drip irrigation because their root volume is very small compared to their fruit load.
