@@ -6,8 +6,6 @@ import FieldsDashboard from './pages/FieldsDashboard';
 import AnimalsDashboard from './pages/AnimalsDashboard';
 import Analytics from './pages/Analytics';
 import KnowledgeBase from './components/KnowledgeBase';
-import AIAssistant from './components/AIAssistant';
-import AIChatPage from './pages/AIChatPage';
 import Login from './pages/Login';
 import { authService } from './services/api';
 import { Leaf, Loader2 } from 'lucide-react';
@@ -17,7 +15,6 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
-  const [showAssistant, setShowAssistant] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -102,12 +99,12 @@ function App() {
       />
 
       <main style={{ minHeight: '80vh', padding: '0 5%' }}>
-        {currentPage === 'home' && (
-          <>
-            <Hero onStart={() => setCurrentPage('fields')} />
-            <Dashboard onOpenAssistant={() => setShowAssistant(true)} />
-          </>
-        )}
+          {currentPage === 'home' && (
+            <>
+              <Hero onStart={() => setCurrentPage('fields')} />
+              <Dashboard />
+            </>
+          )}
 
         {currentPage === 'fields' && (
           <FieldsDashboard />
@@ -124,13 +121,8 @@ function App() {
         {currentPage === 'knowledge' && (
           <KnowledgeBase />
         )}
-
-        {currentPage === 'aichat' && (
-          <AIChatPage />
-        )}
       </main>
 
-      <AIAssistant isOpen={showAssistant} setIsOpen={setShowAssistant} />
 
       {/* Premium Footer */}
       <footer style={{

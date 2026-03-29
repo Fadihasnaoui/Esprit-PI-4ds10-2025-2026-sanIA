@@ -86,3 +86,16 @@ class AnimalInDB(AnimalBase):
     treatments: List[TreatmentLogInDB] = []
     telemetry: List[AnimalTelemetryInDB] = []
     class Config: from_attributes = True
+
+class LivestockZoneCreate(BaseModel):
+    name: str
+    polygon_geojson: str
+    farm_id: UUID
+
+class LivestockZoneInDB(BaseModel):
+    id: UUID
+    farm_id: UUID
+    name: str
+    polygon_geojson: str
+    created_at: datetime
+    class Config: from_attributes = True

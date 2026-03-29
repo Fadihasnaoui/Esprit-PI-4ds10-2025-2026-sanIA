@@ -6,7 +6,7 @@ from ..models.all_models import Animal, VaccinationLog, TreatmentLog, User, User
 from ..schemas.livestock import (
     AnimalCreate, AnimalUpdate, AnimalSummary, AnimalInDB, 
     VaccinationLogCreate, VaccinationLogInDB, TreatmentLogCreate, 
-    TreatmentLogInDB, AnimalTelemetryInDB
+    TreatmentLogInDB, AnimalTelemetryInDB, LivestockZoneCreate, LivestockZoneInDB
 ) # type: ignore
 from .deps import get_current_active_user  # type: ignore
 from uuid import UUID
@@ -14,7 +14,7 @@ from sqlalchemy import desc
 
 import os, re, random, uuid
 from datetime import datetime
-from ..models.all_models import Farm, Cooperative, Animal, VaccinationLog, TreatmentLog, User, UserRole, AnimalTelemetry  # type: ignore
+from ..models.all_models import Farm, Cooperative, Animal, VaccinationLog, TreatmentLog, User, UserRole, AnimalTelemetry, LivestockZone  # type: ignore
 
 def sync_to_sql_file():
     """Refreshes the livestock_seed.sql with current DB state for persistence."""
@@ -57,53 +57,18 @@ router = APIRouter()
 
 @router.get("/", response_model=List[AnimalSummary])
 def read_animals(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
-    # --- AUTO SEEDER ---
-    # (Same as before)
-    if db.query(Animal).count() == 0:
+    # Simple check for farms (to ensure at least a farm exists)
+    if db.query(Farm).count() == 0:
         try:
-            farm = db.query(Farm).first()
-            if not farm:
-                coop = Cooperative(name="Coopérative Centrale")
-                db.add(coop)
-                db.flush()
-                farm = Farm(name="Ferme de Gronbalia", cooperative_id=coop.id)
-                db.add(farm)
-                db.flush()
-
-            SQL_FILE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "Data", "Livestock", "livestock_seed.sql"))
-            if os.path.exists(SQL_FILE_PATH):
-                with open(SQL_FILE_PATH, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    matches = re.finditer(r"\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'(?:,\s*([^,\s\)]+))?(?:,\s*([^,\s\)]+))?(?:,\s*([^,\s\)]+))?\)", content)
-                    
-                    anims = []
-                    for m in matches:
-                        groups = m.groups()
-                        an = Animal(
-                            id=str(uuid.UUID(groups[0])),
-                            tag_id=groups[1], species=groups[2], breed=groups[3], gender=groups[4],
-                            birth_date=datetime.strptime(groups[5], "%Y-%m-%d"),
-                            entry_date=datetime.strptime(groups[6], "%Y-%m-%d"),
-                            status=groups[7], farm_id=farm.id
-                        )
-                        if groups[8] and groups[8] != 'NULL': an.weight_kg = float(groups[8])
-                        else: an.weight_kg = random.uniform(200, 600)
-                        
-                        if groups[9] and groups[9] != 'NULL': an.latitude = float(groups[9])
-                        else: an.latitude = 36.60 + random.uniform(-0.015, 0.015)
-                        
-                        if groups[10] and groups[10] != 'NULL': an.longitude = float(groups[10])
-                        else: an.longitude = 10.49 + random.uniform(-0.015, 0.015)
-                        anims.append(an)
-                    
-                    if anims:
-                        db.bulk_save_objects(anims)
-                        db.commit()
-                        print(f"Auto-seed successful: {len(anims)} animals restored.")
-        except Exception as e:
+            coop = Cooperative(name="Coopérative Centrale")
+            db.add(coop)
+            db.flush()
+            farm = Farm(name="Ferme Expérimentale", cooperative_id=coop.id)
+            db.add(farm)
+            db.commit()
+        except:
             db.rollback()
-            print("Auto-seed failed:", e)
-    
+            
     query = db.query(Animal)
     if current_user.role == UserRole.FARMER:
         query = query.filter(Animal.farm_id == current_user.farm_id)
@@ -121,6 +86,37 @@ def create_animal(animal_in: AnimalCreate, background_tasks: BackgroundTasks, db
     db.refresh(db_animal)
     background_tasks.add_task(sync_to_sql_file) # Re-enabled: Persist changes to SQL
     return db_animal
+
+@router.get("/zones", response_model=List[LivestockZoneInDB])
+def get_zones(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    query = db.query(LivestockZone)
+    if current_user.role == UserRole.FARMER:
+        query = query.filter(LivestockZone.farm_id == str(current_user.farm_id))
+    return query.all()
+
+@router.post("/zones", response_model=LivestockZoneInDB)
+def create_zone(zone_in: LivestockZoneCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    if current_user.role == UserRole.FARMER and str(zone_in.farm_id) != str(current_user.farm_id):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    data = zone_in.dict()
+    data["farm_id"] = str(data["farm_id"])
+    db_zone = LivestockZone(**data)
+    db.add(db_zone)
+    db.commit()
+    db.refresh(db_zone)
+    return db_zone
+
+@router.delete("/zones/{zone_id}")
+def delete_zone(zone_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    db_zone = db.query(LivestockZone).filter(LivestockZone.id == str(zone_id)).first()
+    if not db_zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+    if current_user.role == UserRole.FARMER and db_zone.farm_id != current_user.farm_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    db.delete(db_zone)
+    db.commit()
+    return {"status": "success"}
 
 @router.get("/{animal_id}", response_model=AnimalInDB)
 def get_animal(animal_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
@@ -210,3 +206,4 @@ def delete_treatment(log_id: UUID, db: Session = Depends(get_db)):
     db.delete(db_log)
     db.commit()
     return {"status": "success"}
+

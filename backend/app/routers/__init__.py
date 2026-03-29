@@ -6,4 +6,3 @@ from . import scans
 from . import ndvi
 from . import alerts
 from . import livestock_ws
-from . import ai_chat

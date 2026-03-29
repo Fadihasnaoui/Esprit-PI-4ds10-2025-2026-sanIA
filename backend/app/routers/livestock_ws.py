@@ -93,6 +93,61 @@ async def ingest_telemetry(
     db.commit()
     db.refresh(db_telemetry)
     
+    
+    # --- Geofencing Check ---
+    # Retrieve all zones for this farm
+    from app.models.all_models import LivestockZone, Alert
+    import json
+    
+    zones = db.query(LivestockZone).filter(LivestockZone.farm_id == target_animal.farm_id).all()
+    
+    def is_point_in_polygon(point, polygon):
+        x, y = point
+        inside = False
+        n = len(polygon)
+        if n == 0: return False
+        p1x, p1y = polygon[0]
+        for i in range(1, n + 1):
+            p2x, p2y = polygon[i % n]
+            if min(p1y, p2y) < y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or x <= xinters:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+        return inside
+        
+    is_safe = True
+    if zones and len(zones) > 0 and payload.latitude and payload.longitude:
+        is_safe = False
+        for z in zones:
+            try:
+                geo = json.loads(z.polygon_geojson)
+                coords = geo.get("coordinates", [[]])[0]
+                if is_point_in_polygon((payload.longitude, payload.latitude), coords):
+                    is_safe = True
+                    break
+            except Exception:
+                pass
+                
+        if not is_safe:
+            # Animal is OUTSIDE all zones! Generate alert if one doesn't already exist today
+            existing_alert = db.query(Alert).filter(
+                Alert.farm_id == target_animal.farm_id,
+                Alert.type == f"GEOFENCE_BREACH_{target_animal.tag_id}",
+                Alert.status == "open"
+            ).first()
+            if not existing_alert:
+                new_alert = Alert(
+                    farm_id=target_animal.farm_id,
+                    type=f"GEOFENCE_BREACH_{target_animal.tag_id}",
+                    severity="CRITICAL",
+                    note=f"Alerte GPS: L'animal {target_animal.tag_id} est sorti de sa zone assignée."
+                )
+                db.add(new_alert)
+                db.commit()
+
     # 4. Broadcast to connected WebSockets
     message = {
         "type": "TELEMETRY_UPDATE",
@@ -104,10 +159,11 @@ async def ingest_telemetry(
             "latitude": db_telemetry.latitude,
             "longitude": db_telemetry.longitude,
             "weight_kg": db_telemetry.weight_kg,
-            "time": db_telemetry.time.isoformat()
+            "time": db_telemetry.time.isoformat(),
+            "geofence_status": "SAFE" if is_safe else "BREACH"
         }
     }
     await manager.broadcast(message)
     
-    return {"status": "success", "tag_id": target_animal.tag_id}
+    return {"status": "success", "tag_id": target_animal.tag_id, "geofence": "SAFE" if is_safe else "BREACH"}
 

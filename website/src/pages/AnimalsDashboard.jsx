@@ -42,10 +42,9 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete }) => {
   `;
 
   /* Pro Health Score Calculation */
-  /* Dynamic Health Status: Sain or Critique only */
   const getHealthInfo = (t, manualStatus) => {
-    const isActuallyCritique = t ? (t.heart_rate > 100 || t.temperature_c > 39.5 || t.heart_rate < 40 || t.temperature_c < 37.5) : (manualStatus === 'Critique' || manualStatus === 'URGENCE' || manualStatus === 'Malade');
-    return isActuallyCritique ? { label: 'Critique', color: '#ef4444', isBlinking: true } : { label: 'Sain', color: '#22c55e', isBlinking: false };
+    const isActuallyCritique = t ? (t.heart_rate > 100 || t.temperature_c > 39.5 || t.heart_rate < 40 || t.temperature_c < 37.5 || t.geofence_status === 'BREACH') : (manualStatus === 'Critique' || manualStatus === 'URGENCE' || manualStatus === 'Malade');
+    return isActuallyCritique ? { label: 'Critique', color: '#ef4444', isBlinking: true, status: t?.geofence_status === 'BREACH' ? 'HORS ZONE' : 'Critique' } : { label: 'Sain', color: '#22c55e', isBlinking: false, status: 'Sain' };
   };
 
   const health = getHealthInfo(telemetry, animal.status);
@@ -244,6 +243,7 @@ const AnimalsDashboard = ({ user }) => {
   const [viewMode, setViewMode] = useState('grid'); 
   const [telemetryData, setTelemetryData] = useState({});
   const [historicalTelemetry, setHistoricalTelemetry] = useState([]);
+  const [zones, setZones] = useState([]);
   const [selectedAnimalId, setSelectedAnimalId] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -278,12 +278,35 @@ const AnimalsDashboard = ({ user }) => {
       .then(res => {
         if (res.data.length > 0) {
           setHistoricalTelemetry(res.data);
-          // Also update current view with latest from history
-          const last = res.data[0]; // res.data is sorted desc
-          setTelemetryData(prev => ({ ...prev, [id]: last }));
+          setHistoricalTelemetry(res.data);
         }
       })
       .catch(err => console.error("History fetch failed", err));
+  };
+
+  const fetchZones = () => {
+    livestockService.getZones().then(res => setZones(res.data)).catch(console.error);
+  };
+
+  const handleSaveZone = async (zoneData) => {
+    try {
+      const farm_id = user?.farm_id || (animals.length > 0 ? animals[0].farm_id : null);
+      if (!farm_id) return alert("Identifiant de ferme introuvable.");
+      await livestockService.createZone({ ...zoneData, farm_id });
+      fetchZones();
+      alert("Zone sauvegardée !");
+    } catch (err) {
+      alert("Erreur: " + err.message);
+    }
+  };
+
+  const handleDeleteZone = async (zoneId) => {
+    try {
+      await livestockService.deleteZone(zoneId);
+      fetchZones();
+    } catch (err) {
+      alert("Erreur: " + err.message);
+    }
   };
 
   useEffect(() => {
@@ -292,6 +315,7 @@ const AnimalsDashboard = ({ user }) => {
 
   useEffect(() => {
     fetchAnimals();
+    fetchZones();
 
     const connectWS = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -344,8 +368,11 @@ const AnimalsDashboard = ({ user }) => {
 
   const filteredAnimals = useMemo(() => {
     return animals.filter(a => {
-      const matchesSearch = a.tag_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            a.breed.toLowerCase().includes(searchTerm.toLowerCase());
+      const tagStr = a.tag_id ? String(a.tag_id).toLowerCase() : '';
+      const breedStr = a.breed ? String(a.breed).toLowerCase() : '';
+      const searchStr = searchTerm ? searchTerm.toLowerCase() : '';
+      
+      const matchesSearch = tagStr.includes(searchStr) || breedStr.includes(searchStr);
       const matchesFilter = filterSpecies === 'all' || a.species === filterSpecies;
       return matchesSearch && matchesFilter;
     });
@@ -356,14 +383,81 @@ const AnimalsDashboard = ({ user }) => {
   
   const critiqueAnimals = animals.filter(a => {
     const t = telemetryData[a.id];
-    return t ? (t.heart_rate > 100 || t.temperature_c > 39.5) : (a.status === 'Critique');
+    return t ? (t.heart_rate > 100 || t.temperature_c > 39.5 || t.geofence_status === 'BREACH') : (a.status === 'Critique');
   });
   
   const critiqueCount = critiqueAnimals.length;
   const sainCount = animals.length - critiqueCount;
 
+  // Ray-Casting algorithm to check Point in Polygon (Frontend automatic compute)
+  const isPointInPolygon = (point, vs) => {
+    const x = point[0], y = point[1];
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+      const xi = vs[i][0], yi = vs[i][1];
+      const xj = vs[j][0], yj = vs[j][1];
+      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  };
+
+  const escapedAnimals = useMemo(() => {
+    return animals.filter(a => {
+      const t = telemetryData[a.id];
+      // S'il est marqué explicitly par le backend
+      if (t?.geofence_status === 'BREACH') return true;
+      
+      // S'il n'y a pas de zones, l'animal est virtuellement libre (safe)
+      if (!zones || zones.length === 0) return false;
+      
+      // Récupérer la dernière position connue de l'animal
+      const lat = t?.latitude || a.latitude;
+      const lng = t?.longitude || a.longitude;
+      if (!lat || !lng) return false;
+
+      let isInsideAnyZone = false;
+      for (const z of zones) {
+        try {
+          const geo = JSON.parse(z.polygon_geojson);
+          if (geo && geo.coordinates && geo.coordinates[0]) {
+            const polyCoords = geo.coordinates[0]; // [[lng, lat]]
+            if (isPointInPolygon([lng, lat], polyCoords)) {
+              isInsideAnyZone = true;
+              break;
+            }
+          }
+        } catch (e) { console.error("GeoJSON error"); }
+      }
+      
+      return !isInsideAnyZone; // S'il n'est dans AUCUNE zone, il est échappé
+    });
+  }, [animals, telemetryData, zones]);
+
   return (
     <div style={{ padding: '1.5rem 0' }}>
+      {escapedAnimals.length > 0 && (
+        <div className="animate-pulse" style={{ background: 'rgba(239, 68, 68, 0.15)', border: '2px solid #ef4444', borderRadius: '12px', padding: '1.2rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.2rem', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)' }}>
+          <div style={{ background: '#ef4444', padding: '12px', borderRadius: '50%', color: 'white', display: 'flex' }}>
+            <AlertTriangle size={28} />
+          </div>
+          <div>
+            <h3 style={{ color: '#ef4444', margin: 0, fontSize: '1.3rem', fontWeight: 'bold', textTransform: 'uppercase' }}>🚨 Alerte Geofencing : Évasion Détectée</h3>
+            <p style={{ margin: '0.3rem 0 0', color: 'var(--text-bright)', fontSize: '0.95rem' }}>
+              <strong>{escapedAnimals.length} animal(aux)</strong> se trouvent actuellement hors des limites de pâturage : <span style={{ color: '#ffbdcb', fontWeight: 'bold' }}>{escapedAnimals.map(a => a.tag_id).join(', ')}</span>
+            </p>
+          </div>
+          <button 
+            onClick={() => setViewMode('live')}
+            style={{ marginLeft: 'auto', background: '#ef4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s' }}
+            onMouseOver={(e) => e.target.style.background = '#dc2626'}
+            onMouseOut={(e) => e.target.style.background = '#ef4444'}
+          >
+            Localiser
+          </button>
+        </div>
+      )}
+
       {/* Top Banner Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         {[
@@ -504,7 +598,16 @@ const AnimalsDashboard = ({ user }) => {
                    {isConnected ? 'WebSocket Actif' : 'Déconnecté'}
                 </span>
               </div>
-              <LivestockMap animals={filteredAnimals} telemetryData={telemetryData} selectedId={selectedAnimalId} onSelectAnimal={setSelectedAnimalId} />
+              <LivestockMap 
+                animals={filteredAnimals} 
+                telemetryData={telemetryData} 
+                selectedId={selectedAnimalId} 
+                onSelectAnimal={setSelectedAnimalId} 
+                zones={zones} 
+                onSaveZone={handleSaveZone} 
+                onDeleteZone={handleDeleteZone} 
+                escapedAnimalIds={new Set(escapedAnimals.map(a => a.id))}
+              />
            </div>
 
            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -536,12 +639,15 @@ const AnimalsDashboard = ({ user }) => {
                   <Activity size={16} color="var(--sand-gold)" /> Flux d'Activité Live
                 </h4>
                 <div style={{ flex: 1, overflowY: 'auto', maxHeight: '200px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {Object.values(telemetryData).sort((a,b) => new Date(b.time) - new Date(a.time)).slice(0, 10).map((t, idx) => {
+                  {Object.values(telemetryData)
+                      .filter(t => animals.some(an => an.id === t.animal_id))
+                      .sort((a,b) => new Date(b.time) - new Date(a.time))
+                      .slice(0, 10).map((t, idx) => {
                     const animal = animals.find(an => an.id === t.animal_id);
                     return (
                       <div key={idx} style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{animal?.tag_id || 'ID...'}</span>
+                          <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{animal.tag_id}</span>
                           <span style={{ marginLeft: '8px', color: 'var(--text-dim)' }}>{t.activity_level}</span>
                         </div>
                         <div style={{ color: 'var(--text-muted)' }}>{new Date(t.time).toLocaleTimeString()}</div>

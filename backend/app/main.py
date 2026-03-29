@@ -1,17 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals, livestock_ws, ai_chat
+from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals, livestock_ws
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-from app.db.session import engine
-from app.models.all_models import Base
-
-Base.metadata.create_all(bind=engine)
+@app.on_event("startup")
+def startup_event():
+    from app.db.session import engine
+    from app.models.all_models import Base
+    Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,4 +34,3 @@ app.include_router(fields.router, prefix=f"{settings.API_V1_STR}/fields", tags=[
 app.include_router(ndvi.router, prefix=f"{settings.API_V1_STR}/ndvi", tags=["satellite"])
 app.include_router(sensors.router, prefix=f"{settings.API_V1_STR}/sensors", tags=["sensors"])
 app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
-app.include_router(ai_chat.router, prefix=f"{settings.API_V1_STR}/ai", tags=["ai"])

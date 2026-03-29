@@ -148,7 +148,7 @@ const ScanRow = ({ scan }) => {
 /* ═══════════════════════════════════════
    MAIN DASHBOARD COMPONENT 
    ═══════════════════════════════════════ */
-const Dashboard = ({ onOpenAssistant }) => {
+const Dashboard = () => {
   const [alerts, setAlerts] = useState([]);
   const [animals, setAnimals] = useState([]);
   const [fields, setFields] = useState([]);
@@ -296,26 +296,6 @@ const Dashboard = ({ onOpenAssistant }) => {
         <StatCard icon={TreePine} label="Cheptel" value={animatedAnimals} unit="têtes" color="#D4A843" delay={4} subtext={`${new Set(animals.map(a => a.species)).size} espèce(s)`} />
         <StatCard icon={Bug} label="Santé Cultures" value={diseaseRate} unit="%" color="#8BC34A" delay={5} trend={diseaseRate >= 80 ? 3 : -8} subtext={`${scans.length} scan(s) analysé(s)`} />
         
-        {/* AI Insight Card */}
-        <div className="glass-card animate-slide-up delay-6" style={{ background: 'linear-gradient(145deg, rgba(139,195,74,0.08), rgba(107,142,35,0.05))', border: '1px solid rgba(139,195,74,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
-              <div style={{ padding: '0.4rem', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex' }}>
-                <Zap size={18} color="var(--primary)" />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: '700', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>SANIA AI Insight</h3>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '1px', textTransform: 'uppercase' }}>Analyse automatisée</span>
-              </div>
-            </div>
-            <p style={{ fontSize: '0.9rem', marginBottom: '1.2rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontWeight: '300', fontStyle: 'italic', borderLeft: '3px solid var(--primary)', paddingLeft: '1rem' }}>
-              "{openAlerts.length > 0 ? openAlerts[0].note || `${openAlerts.length} alerte(s) requièrent votre attention urgente.` : `Tout va bien ! ${fields.length} parcelle(s) sous surveillance, ${diseaseRate}% de cultures saines.`}"
-            </p>
-          </div>
-          <button className="btn btn-primary" style={{ width: '100%', fontSize: '0.78rem', justifyContent: 'center' }} onClick={onOpenAssistant}>
-            <Zap size={15} /> Consulter l'IA
-          </button>
-        </div>
       </div>
 
       {/* ───── Alerts Section ───── */}

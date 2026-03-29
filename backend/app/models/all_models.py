@@ -169,3 +169,12 @@ class Alert(Base):
     note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     farm = relationship("Farm", back_populates="alerts")
+
+class LivestockZone(Base):
+    __tablename__ = "livestock_zones"
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    farm_id = Column(ID_TYPE, ForeignKey("farms.id"))
+    name = Column(String)
+    polygon_geojson = Column(Text) # JSON string representation of polygon coordinates
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    farm = relationship("Farm")

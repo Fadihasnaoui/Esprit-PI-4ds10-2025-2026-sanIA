@@ -53,6 +53,9 @@ export const livestockService = {
   deleteVaccination: (logId) => api.delete(`/animals/vaccinations/${logId}`),
   addTreatment: (animalId, data) => api.post(`/animals/${animalId}/treatments`, data),
   deleteTreatment: (logId) => api.delete(`/animals/treatments/${logId}`),
+  getZones: () => api.get('/animals/zones'),
+  createZone: (data) => api.post('/animals/zones', data),
+  deleteZone: (id) => api.delete(`/animals/zones/${id}`),
 };
 
 export const diseaseService = {
@@ -62,20 +65,6 @@ export const diseaseService = {
 
 export const ndviService = {
   getHistory: (fieldId, weeks = 8) => api.get(`/ndvi/${fieldId}?weeks=${weeks}`),
-};
-
-export const aiService = {
-  uploadDoc: (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return api.post('/ai/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  },
-  getContext: () => api.get('/ai/context'),
-  clearContext: () => api.delete('/ai/context'),
-  // Chat is handled via fetch for streaming
-  getChatUrl: () => `${API_URL}/ai/chat`
 };
 
 export default api;

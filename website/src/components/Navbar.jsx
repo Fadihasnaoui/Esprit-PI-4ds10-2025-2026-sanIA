@@ -16,7 +16,6 @@ const Navbar = ({ onNavigate, currentPage, user, onLogout }) => {
     { id: 'fields', label: 'Parcelles', emoji: '🌾' },
     { id: 'animals', label: 'Cheptel', emoji: '🐄' },
     { id: 'analytics', label: 'Analytics', emoji: '📊' },
-    { id: 'aichat', label: 'Expert Chat', emoji: '✨' },
     { id: 'knowledge', label: 'Ressources', emoji: '📚' },
   ];
 

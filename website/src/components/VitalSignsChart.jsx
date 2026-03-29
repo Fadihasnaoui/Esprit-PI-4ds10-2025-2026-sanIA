@@ -70,29 +70,39 @@ const VitalSignsChart = ({ telemetryData, selectedId, historicalData = [] }) => 
 
     // Handle Historical Data
     useEffect(() => {
-        if (hrSeriesRef.current && historicalData.length > 0) {
-            const hrPoints = historicalData
-                .map(d => ({ time: Math.floor(new Date(d.time).getTime() / 1000), value: d.heart_rate }))
-                .filter(p => !isNaN(p.time))
-                .sort((a,b) => a.time - b.time);
-            
-            const weightPoints = historicalData
-                .map(d => ({ time: Math.floor(new Date(d.time).getTime() / 1000), value: d.weight_kg }))
-                .filter(p => !isNaN(p.time) && p.value != null)
-                .sort((a,b) => a.time - b.time);
+        if (hrSeriesRef.current) {
+            if (historicalData.length > 0) {
+                const hrPoints = historicalData
+                    .map(d => ({ time: Math.floor(new Date(d.time).getTime() / 1000), value: d.heart_rate }))
+                    .filter(p => !isNaN(p.time))
+                    .sort((a,b) => a.time - b.time);
+                
+                const weightPoints = historicalData
+                    .map(d => ({ time: Math.floor(new Date(d.time).getTime() / 1000), value: d.weight_kg }))
+                    .filter(p => !isNaN(p.time) && p.value != null)
+                    .sort((a,b) => a.time - b.time);
 
-            if (hrPoints.length > 0) {
                 hrSeriesRef.current.setData(hrPoints);
-                lastTimeRef.current = Math.max(lastTimeRef.current, hrPoints[hrPoints.length - 1].time);
+                if (hrPoints.length > 0) {
+                    lastTimeRef.current = Math.max(lastTimeRef.current, hrPoints[hrPoints.length - 1].time);
+                }
+
+                if (weightSeriesRef.current) {
+                    weightSeriesRef.current.setData(weightPoints);
+                    if (weightPoints.length > 0) {
+                        lastTimeRef.current = Math.max(lastTimeRef.current, weightPoints[weightPoints.length - 1].time);
+                    }
+                }
+                
+                chartRef.current?.timeScale().fitContent();
+            } else {
+                // Clear the charts if no historical data is available for this selected animal
+                hrSeriesRef.current.setData([]);
+                if (weightSeriesRef.current) weightSeriesRef.current.setData([]);
+                lastTimeRef.current = 0;
             }
-            if (weightPoints.length > 0) {
-                weightSeriesRef.current.setData(weightPoints);
-                lastTimeRef.current = Math.max(lastTimeRef.current, weightPoints[weightPoints.length - 1].time);
-            }
-            
-            chartRef.current?.timeScale().fitContent();
         }
-    }, [historicalData]);
+    }, [historicalData, selectedId]);
 
     useEffect(() => {
         if (selectedId && telemetryData[selectedId] && hrSeriesRef.current) {
