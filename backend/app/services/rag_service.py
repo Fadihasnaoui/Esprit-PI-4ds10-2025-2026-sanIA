@@ -4,8 +4,7 @@ Knowledge sources: treatment1/detailed_treatments.csv,
                    treatment2/treatment_2.csv,
                    treatment2/*.txt,
                    treatment2/*.pdf
-Embedding model : all-MiniLM-L6-v2  (sentence-transformers)
-Vector store    : FAISS (disk-persisted, rebuilt on demand)
+ "answer": "I'm an agricultural assistant for the Sania AgriSmart platform, and I'll be happy to help you with your question.\n\nHowever, I need to clarify that the data provided seems to be related to crop monitoring and weather conditions. It appears to contain information about soil moisture, air temperature, relative humidity, wind speed, rainfall, reference evapotranspiration, and other factors affecting crops. The data does not seem to relate to a specific disease or condition, including Iskra (also known as black measles).\n\nIf you meant to ask about a different topic or provide more context, please feel free to do so, and I'll do my best to assist you.",Vector store    : FAISS (disk-persisted, rebuilt on demand)
 LLM             : Llama 3 (8B) via Ollama
 """
 
@@ -16,18 +15,16 @@ import csv
 import logging
 import pickle
 from pathlib import Path
-from typing import List, Dict, Any
-
+from typing import List, Dict, Any, Union
 import httpx
 import numpy as np
+from pypdf import PdfReader
 
 from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Lazy-loaded globals (populated when build_index() or load_index() is called)
-# ---------------------------------------------------------------------------
+
 _index = None
 _chunks: List[str] = []
 _chunk_metadata: List[Dict[str, Any]] = []
@@ -38,28 +35,75 @@ INDEX_FILE = DATA_DIR / "vector_index.bin"
 METADATA_FILE = DATA_DIR / "metadata.pkl"
 
 
-# ---------------------------------------------------------------------------
-# Helper: load sentence-transformer model once
-# ---------------------------------------------------------------------------
+class OllamaEmbeddingModel:
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+
+    def encode(self, texts: Union[str, List[str]], **kwargs) -> List[List[float]]:
+        import httpx
+        results = []
+        if isinstance(texts, str):
+            texts = [texts]
+            
+        batch_size = kwargs.get("batch_size", 64)
+        
+        with httpx.Client(timeout=120.0) as client:
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i:i + batch_size]
+                try:
+                    response = client.post(
+                        f"{settings.OLLAMA_BASE_URL}/api/embed",
+                        json={
+                            "model": self.model_name,
+                            "input": batch,
+                        }
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "embeddings" in data:
+                            results.extend(data["embeddings"])
+                            continue
+                    else:
+                        logger.warning(f"Batch embed failed with status {response.status_code}: {response.text}")
+                except Exception as e:
+                    logger.warning(f"Batch embed failed, falling back to single embeddings: {e}")
+                
+                # Fallback
+                for text in batch:
+                    response = client.post(
+                        f"{settings.OLLAMA_BASE_URL}/api/embeddings",
+                        json={
+                            "model": self.model_name,
+                            "prompt": text,
+                        }
+                    )
+                    if response.status_code != 200:
+                        err_msg = f"Ollama HTTP {response.status_code}: {response.text}"
+                        logger.error(err_msg)
+                        raise RuntimeError(err_msg)
+                    
+                    data = response.json()
+                    results.append(data.get("embedding", []))
+                    
+        return results
+
 def _get_model():
     global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer
         logger.info("Loading embedding model all-MiniLM-L6-v2 …")
+        from sentence_transformers import SentenceTransformer
         _model = SentenceTransformer("all-MiniLM-L6-v2")
         logger.info("Embedding model loaded.")
     return _model
 
 
-# ---------------------------------------------------------------------------
+
 # Text extractors
-# ---------------------------------------------------------------------------
 def _extract_txt(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
 def _extract_pdf(path: Path) -> str:
-    from pypdf import PdfReader
     reader = PdfReader(str(path))
     pages = []
     for page in reader.pages:
@@ -82,9 +126,7 @@ def _extract_csv(path: Path) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
 # Chunking
-# ---------------------------------------------------------------------------
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     words = text.split()
     chunks = []
@@ -98,9 +140,7 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str
     return chunks
 
 
-# ---------------------------------------------------------------------------
 # Index Management (Load/Save/Build)
-# ---------------------------------------------------------------------------
 def build_index() -> int:
     """(Re)builds the FAISS index and saves it to disk."""
     global _index, _chunks, _chunk_metadata
@@ -204,10 +244,8 @@ def load_index() -> bool:
         return False
 
 
-# ---------------------------------------------------------------------------
 # Query
-# ---------------------------------------------------------------------------
-def _retrieve(question: str, top_k: int = 5) -> List[Dict[str, Any]]:
+def _retrieve(question: str, top_k: int = 10) -> List[Dict[str, Any]]:
     """Retrieves top-K chunks, matching against a loaded index."""
     global _index
     
@@ -241,7 +279,7 @@ def _is_greeting(text: str) -> bool:
     greetings = {
         "bonjour", "salut", "hello", "hi", "coucou", "hey",
         "ca va", "ça va", "how are you", "comment vas-tu",
-        "merci", "thanks", "au revoir", "bye", "goodbye"
+        "merci", "thanks", "au revoir", "bye", "goodbye","slt","bjr","bsr","bjour","bsoir","bonsoir"
     }
     clean_text = text.lower().strip().replace("?", "").replace("!", "")
     return any(g == clean_text for g in greetings)
@@ -256,9 +294,11 @@ def query_rag(question: str) -> Dict[str, Any]:
     if _is_greeting(question):
         logger.info(f"Greeting detected: '{question}'. Bypassing RAG.")
         prompt = f"""You are a friendly agricultural assistant for the Sania AgriSmart platform.
-The user just said: '{question}'. 
-Respond warmly, greet them in French, and ask how you can help with their farm today.
-Keep it very short."""
+The user just said: '{question}'.
+CRITICAL INSTRUCTION: You MUST respond in the EXACT SAME LANGUAGE as the user's message.
+- If the user speaks Arabic, you MUST reply entirely in Arabic.
+- If the user speaks French, you MUST reply entirely in French.
+Respond warmly and ask how you can help with their farm today. Keep it very short."""
         
         try:
             response = httpx.post(
@@ -294,16 +334,27 @@ Keep it very short."""
 
     context = "\n\n---\n\n".join([item["content"] for item in retrieved])
 
-    prompt = f"""Vous êtes un assistant agricole expert pour la plateforme Sania AgriSmart.
-Utilisez UNIQUEMENT le contexte suivant pour répondre à la question. 
-Si la réponse n'est pas dans le contexte, dites-le poliment.
+    prompt = f"""You are an expert agricultural assistant for the Sania AgriSmart platform.
 
-CONTEXTE:
+YOUR TASKS:
+1. Identify the language of the user's QUESTION.
+2. Read the provided CONTEXT (which might be in English).
+3. Based ONLY on the CONTEXT, provide the appropriate treatment and recommended practices for the plant disease or symptom mentioned. Translate the relevant information from the CONTEXT into the language of the QUESTION.
+4. If the info is not in the CONTEXT, politely state that you do not know based on the provided data. Do NOT guess, and ensure this "I don't know" message is ALSO translated into the language of the QUESTION.
+
+CRITICAL INSTRUCTION ON LANGUAGE:
+No matter what language the CONTEXT is in, you MUST reply entirely in the EXACT SAME LANGUAGE as the user's QUESTION.
+- If QUESTION is in Arabic -> Your response MUST be 100% in Arabic (e.g., "مرحباً، بناءً على المعلومات...").
+- If QUESTION is in French -> Your response MUST be 100% in French (e.g., "Bonjour, d'après les informations...").
+- If QUESTION is in English -> Your response MUST be 100% in English (e.g., "Hello, based on the information...").
+
+CONTEXT:
 {context}
 
-QUESTION: {question}
+QUESTION (Please answer in the same language as this question):
+{question}
 
-REPONSE:"""
+RESPONSE:"""
 
     try:
         response = httpx.post(

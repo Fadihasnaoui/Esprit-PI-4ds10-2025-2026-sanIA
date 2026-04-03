@@ -19,3 +19,5 @@ A production-style smart agriculture dashboard with role-based access control, r
 ```bash
 docker-compose up --build
 ```
+#run backend :python -m uvicorn app.main:app --reload         /// python run.py
+#run frontend :npm run dev
