@@ -1,0 +1,590 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+/* ══════════════════════════════════════════════
+   SANIA — Tunisian Agriculture Design System
+   Color Palette: Olive, Terracotta, Sand Gold
+   ══════════════════════════════════════════════ */
+
+:root {
+  /* Primary Colors — Tunisian Earth */
+  --primary: #8BC34A;
+  --primary-dark: #689F38;
+  --primary-glow: rgba(139, 195, 74, 0.35);
+  --primary-soft: rgba(139, 195, 74, 0.12);
+  
+  /* Secondary — Terracotta & Sand */
+  --terracotta: #C75B39;
+  --terracotta-glow: rgba(199, 91, 57, 0.3);
+  --terracotta-soft: rgba(199, 91, 57, 0.12);
+  --sand-gold: #D4A843;
+  --sand-glow: rgba(212, 168, 67, 0.3);
+  --sand-soft: rgba(212, 168, 67, 0.12);
+  
+  /* Olive accents */
+  --olive: #6B8E23;
+  --olive-dark: #556B2F;
+  --olive-glow: rgba(107, 142, 35, 0.3);
+  
+  /* Tunisian sky & sea */
+  --sky-blue: #4EADD5;
+  --sky-soft: rgba(78, 173, 213, 0.12);
+
+  /* Backgrounds */
+  --bg-deepest: #0B0F0D;
+  --bg-dark: #111916;
+  --bg-surface: #162019;
+  --bg-elevated: #1C2B22;
+  
+  /* Text */
+  --text-bright: #F5F1EB;
+  --text-light: #E0DAD0;
+  --text-muted: #8A9182;
+  --text-dim: #5A6358;
+  
+  /* Glass effects */
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-hover: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(139, 195, 74, 0.4);
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #8BC34A 0%, #4EADD5 100%);
+  --gradient-warm: linear-gradient(135deg, #C75B39 0%, #D4A843 100%);
+  --gradient-earth: linear-gradient(135deg, #6B8E23 0%, #8BC34A 100%);
+  --gradient-sunset: linear-gradient(135deg, #C75B39 0%, #D4A843 50%, #8BC34A 100%);
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.4);
+  --shadow-glow-primary: 0 8px 32px rgba(139, 195, 74, 0.15);
+  --shadow-glow-terracotta: 0 8px 32px rgba(199, 91, 57, 0.15);
+  
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 0.2s;
+  --duration-normal: 0.4s;
+  --duration-slow: 0.6s;
+}
+
+/* ══════════════════════════════════════════════
+   RESET & BASE
+   ══════════════════════════════════════════════ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-deepest);
+  color: var(--text-light);
+  line-height: 1.7;
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tunisian-inspired background pattern */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 195, 74, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(199, 91, 57, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 100% 50%, rgba(212, 168, 67, 0.04) 0%, transparent 50%);
+}
+
+/* Subtle Tunisian geometric pattern overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.015;
+  background-image: 
+    repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(139, 195, 74, 0.5) 50px, rgba(139, 195, 74, 0.5) 51px),
+    repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(139, 195, 74, 0.5) 50px, rgba(139, 195, 74, 0.5) 51px);
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════
+   SCROLLBAR
+   ══════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deepest);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: var(--radius-full);
+  transition: background var(--duration-fast);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* ══════════════════════════════════════════════
+   TYPOGRAPHY
+   ══════════════════════════════════════════════ */
+h1, h2, h3, h4 {
+  font-family: 'Playfair Display', 'Georgia', serif;
+  color: var(--text-bright);
+  line-height: 1.2;
+}
+
+/* ══════════════════════════════════════════════
+   GLASS CARD — Signature Component
+   ══════════════════════════════════════════════ */
+.glass-card {
+  background: var(--glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  transition: all var(--duration-normal) var(--ease-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer sweep effect */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(139, 195, 74, 0.04),
+    transparent
+  );
+  transition: left 0.7s var(--ease-smooth);
+  pointer-events: none;
+}
+
+/* Top decorative Tunisian stripe */
+.glass-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-sunset);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-smooth);
+  pointer-events: none;
+}
+
+.glass-card:hover {
+  background: var(--glass-hover);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg), var(--shadow-glow-primary);
+}
+
+.glass-card:hover::before {
+  left: 100%;
+}
+
+.glass-card:hover::after {
+  opacity: 1;
+}
+
+/* ══════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════ */
+.btn {
+  padding: 0.85rem 2rem;
+  border-radius: var(--radius-md);
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-spring);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-size: 0.8rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+
+.btn:hover::after {
+  opacity: 1;
+}
+
+.btn-primary {
+  background: var(--gradient-earth);
+  color: #fff;
+  box-shadow: var(--shadow-glow-primary);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.btn-primary:hover {
+  transform: scale(1.04) translateY(-2px);
+  box-shadow: 0 12px 36px rgba(139, 195, 74, 0.35), 0 0 20px rgba(139, 195, 74, 0.2);
+  filter: brightness(1.1);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+}
+
+.btn-outline:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  box-shadow: 0 0 24px var(--primary-glow);
+}
+
+.btn-warm {
+  background: var(--gradient-warm);
+  color: #fff;
+  box-shadow: var(--shadow-glow-terracotta);
+}
+
+.btn-warm:hover {
+  transform: scale(1.04) translateY(-2px);
+  box-shadow: 0 12px 36px rgba(199, 91, 57, 0.35);
+  filter: brightness(1.1);
+}
+
+/* ══════════════════════════════════════════════
+   GRID & LAYOUT
+   ══════════════════════════════════════════════ */
+.grid-cols-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+/* ══════════════════════════════════════════════
+   GRADIENT & DECORATIVE TEXT
+   ══════════════════════════════════════════════ */
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-warm {
+  background: var(--gradient-warm);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ══════════════════════════════════════════════
+   ANIMATIONS
+   ══════════════════════════════════════════════ */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes rotate-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.floating {
+  animation: float 5s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.8s var(--ease-smooth) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s var(--ease-smooth) both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s var(--ease-spring) both;
+}
+
+/* Staggered animation delays */
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+.delay-5 { animation-delay: 0.5s; }
+.delay-6 { animation-delay: 0.6s; }
+
+/* ══════════════════════════════════════════════
+   TUNISIAN DECORATIVE ELEMENTS
+   ══════════════════════════════════════════════ */
+.tunisian-border {
+  position: relative;
+}
+
+.tunisian-border::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  background: var(--gradient-sunset);
+  border-radius: var(--radius-full);
+}
+
+/* Mosaic dot pattern for sections */
+.mosaic-bg {
+  position: relative;
+}
+
+.mosaic-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.02;
+  background-image: radial-gradient(circle, var(--primary) 1px, transparent 1px);
+  background-size: 30px 30px;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════
+   NEON / GLOW BORDERS
+   ══════════════════════════════════════════════ */
+.neon-border {
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 12px var(--primary-glow), inset 0 0 12px rgba(139, 195, 74, 0.05);
+}
+
+.warm-glow {
+  box-shadow: 0 0 20px var(--terracotta-glow), inset 0 0 10px rgba(199, 91, 57, 0.05);
+}
+
+/* ══════════════════════════════════════════════
+   STATUS INDICATORS
+   ══════════════════════════════════════════════ */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.status-dot.online {
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+}
+
+.status-dot.warning {
+  background: var(--sand-gold);
+  box-shadow: 0 0 8px var(--sand-gold);
+}
+
+.status-dot.danger {
+  background: var(--terracotta);
+  box-shadow: 0 0 8px var(--terracotta);
+}
+
+/* ══════════════════════════════════════════════
+   FORM INPUTS
+   ══════════════════════════════════════════════ */
+input, select, textarea {
+  font-family: 'Inter', sans-serif;
+}
+
+input::placeholder {
+  color: var(--text-dim);
+}
+
+/* Focus ring */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* ══════════════════════════════════════════════
+   BADGE / TAG
+   ══════════════════════════════════════════════ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.badge-primary {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid rgba(139, 195, 74, 0.2);
+}
+
+.badge-warm {
+  background: var(--terracotta-soft);
+  color: var(--terracotta);
+  border: 1px solid rgba(199, 91, 57, 0.2);
+}
+
+.badge-gold {
+  background: var(--sand-soft);
+  color: var(--sand-gold);
+  border: 1px solid rgba(212, 168, 67, 0.2);
+}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .grid-cols-3 {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  h2 {
+    font-size: 1.6rem !important;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   PROGRESS BARS
+   ══════════════════════════════════════════════ */
+.progress-bar {
+  height: 5px;
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress-bar .fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 1s var(--ease-smooth);
+}
+
+/* ══════════════════════════════════════════════
+   Tooltip
+   ══════════════════════════════════════════════ */
+.tooltip {
+  position: relative;
+}
+
+.tooltip::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: var(--bg-elevated);
+  color: var(--text-light);
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all var(--duration-fast) var(--ease-smooth);
+  border: 1px solid var(--glass-border);
+}
+
+.tooltip:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+/* ══════════════════════════════════════════════
+   SECTION DIVIDER — decorative Tunisian line
+   ══════════════════════════════════════════════ */
+.section-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent, 
+    var(--terracotta) 20%, 
+    var(--sand-gold) 50%, 
+    var(--primary) 80%, 
+    transparent
+  );
+  opacity: 0.3;
+  margin: 3rem 0;
+}

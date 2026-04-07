@@ -1,0 +1,34 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Node.js
+node_modules/
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+MemoryCaptures/
+AssetImportState
+/Assets/AssetStoreTools*
+
+# IDEs
+.vs/
+.vscode/
+
+# Environment
+.env
+
+# Large datasets (optional, but recommended if too big)
+# Data/
+
+# OS files
+.DS_Store
+Thumbs.db

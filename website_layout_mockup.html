@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SanIA - Enterprise Farm Platform</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg-color: #0f172a;
+            /* slate-900 */
+            --sidebar-bg: #020617;
+            /* slate-950 */
+            --panel-bg: #1e293b;
+            /* slate-800 */
+            --border-color: #334155;
+            /* slate-700 */
+
+            --text-main: #f8fafc;
+            /* slate-50 */
+            --text-muted: #94a3b8;
+            /* slate-400 */
+
+            --accent-primary: #0ea5e9;
+            /* sky-500 */
+            --accent-primary-hover: #0284c7;
+            /* sky-600 */
+            --accent-success: #10b981;
+            /* emerald-500 */
+            --accent-danger: #ef4444;
+            /* red-500 */
+            --accent-warning: #f59e0b;
+            /* amber-500 */
+        }
+
+        * {
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ----- SIDEBAR ----- */
+        .sidebar {
+            width: 280px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .logo-container {
+            padding: 30px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(to bottom, rgba(14, 165, 233, 0.05), transparent);
+        }
+
+        .logo-container img {
+            max-width: 160px;
+            height: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));
+        }
+
+        .nav-menu {
+            padding: 20px 0;
+            flex: 1;
+        }
+
+        .nav-item {
+            padding: 16px 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: var(--text-muted);
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .nav-item:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .nav-item.active {
+            color: var(--text-main);
+            background: rgba(14, 165, 233, 0.1);
+            border-left: 4px solid var(--accent-primary);
+        }
+
+        .nav-icon {
+            font-size: 1.2rem;
+        }
+
+        .user-profile {
+            padding: 20px 30px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-success));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        /* ----- MAIN CONTENT ----- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .topbar {
+            height: 80px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .page {
+            display: none;
+            padding: 40px;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-title {
+            font-size: 2.2rem;
+            margin: 0 0 5px 0;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .page-subtitle {
+            color: var(--text-muted);
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        /* ----- LAYOUT GRIDS & CARDS ----- */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            margin: 0;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        /* Dashboard Overview specifics */
+        .kpi-card {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .kpi-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 14px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+        }
+
+        .kpi-info h3 {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .kpi-info p {
+            margin: 5px 0 0 0;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* Mock charts */
+        .mock-chart {
+            height: 200px;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding-top: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .mock-bar {
+            flex: 1;
+            background-color: var(--accent-primary);
+            border-radius: 4px 4px 0 0;
+            opacity: 0.8;
+            transition: height 1s ease;
+        }
+
+        /* ----- UI COMPONENTS ----- */
+        .btn {
+            background: var(--border-color);
+            color: var(--text-main);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            background: #475569;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-primary-hover);
+        }
+
+        .btn-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+            border: 1px solid var(--accent-success);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: var(--accent-success);
+            color: #fff;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-danger);
+            border: 1px solid var(--accent-danger);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: var(--accent-danger);
+            color: #fff;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .badge-safe {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-warn {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-danger);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+        }
+
+        .badge-info {
+            background: rgba(14, 165, 233, 0.15);
+            color: var(--accent-primary);
+            border: 1px solid rgba(14, 165, 233, 0.3);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.9rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Custom Progress Bar for Irrigation */
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--accent-primary);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ----- TOAST NOTIFICATIONS ----- */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: var(--panel-bg);
+            border-left: 4px solid var(--accent-primary);
+            color: var(--text-main);
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            min-width: 300px;
+        }
+
+        .toast.success {
+            border-color: var(--accent-success);
+        }
+
+        .toast.error {
+            border-color: var(--accent-danger);
+        }
+
+        .toast.fade-out {
+            animation: slideOut 0.3s forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* ----- CHATBOT UI ----- */
+        .chat-container {
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .msg-wrapper {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+        }
+
+        .msg-wrapper.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .msg-wrapper.bot {
+            align-self: flex-start;
+            align-items: flex-start;
+        }
+
+        .msg-sender {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            margin-left: 5px;
+        }
+
+        .msg {
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .msg.user {
+            background: var(--accent-primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg.bot {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-input {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            background: var(--bg-color);
+            padding: 5px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 14px;
+            background: transparent;
+            border: none;
+            color: white;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px 15px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            align-self: flex-start;
+            margin-top: 10px;
+        }
+
+        .dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo-container">
+            <!-- Ensure your actual logo image is in the same folder and named 'logo.png' -->
+            <img src="logo.png" alt="SanIA Logo"
+                onerror="this.outerHTML='<h1 style=\'margin:0;color:var(--accent-success);\'>SanIA</h1><p style=\'margin:5px 0 0 0;font-size:0.8rem;color:var(--text-muted)\'>Smart Solutions</p>'">
+        </div>
+
+        <div class="nav-menu">
+            <div class="nav-item active" onclick="switchPage('page-dashboard', this)">
+                <span class="nav-icon">📊</span> Overview
+            </div>
+            <div class="nav-item" onclick="switchPage('page-irrigation', this)">
+                <span class="nav-icon">💧</span> Precision Irrigation
+            </div>
+            <div class="nav-item" onclick="switchPage('page-livestock', this)">
+                <span class="nav-icon">🐄</span> Livestock Manager
+            </div>
+            <div class="nav-item" onclick="switchPage('page-rag', this)">
+                <span class="nav-icon">🤖</span> AI Copilot (RAG)
+            </div>
+            <hr style="border-color: var(--border-color); margin: 20px;">
+            <div class="nav-item" onclick="window.open('digital_twin_mockup.html', '_blank')">
+                <span class="nav-icon">🌍</span> 3D Digital Twin ↗
+            </div>
+        </div>
+
+        <div class="user-profile">
+            <div class="avatar">👨‍🌾</div>
+            <div>
+                <div style="font-weight: 600; font-size: 0.95rem;">Farm Admin</div>
+                <div style="color: var(--accent-primary); font-size: 0.8rem;">Projet Pi</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="topbar">
+            <div><span style="color:var(--text-muted)">SanIA Platform /</span> <b id="breadcrumb">Overview</b></div>
+            <div style="display:flex; gap: 15px;">
+                <button class="btn" style="padding: 8px 12px;">🔔<span
+                        style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:var(--accent-danger); border-radius:50%;"></span></button>
+                <button class="btn" style="padding: 8px 12px;">⚙️</button>
+            </div>
+        </div>
+
+        <!-- 1. DASHBOARD OVERVIEW -->
+        <div id="page-dashboard" class="page active">
+            <div class="page-header">
+                <h1 class="page-title">Welcome back, Admin.</h1>
+                <p class="page-subtitle">Here is what is happening on your farm today.</p>
+            </div>
+
+            <div class="grid-3">
+                <div class="card kpi-card">
+                    <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-success);">📊
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Total Crop Yield Est.</h3>
+                        <p>+14.2%</p>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="kpi-icon" style="background: rgba(14, 165, 233, 0.1); color: var(--accent-primary);">💧
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Water Optimization</h3>
+                        <p>32.4k L</p>
+                    </div>
+                </div>
+                <div class="card kpi-card">
+                    <div class="kpi-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--accent-danger);">🐄
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Livestock Alerts</h3>
+                        <p style="color: var(--accent-danger);">2 Active</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Evapotranspiration (ETc) vs Supply</h2>
+                    </div>
+                    <div class="mock-chart">
+                        <div class="mock-bar" style="height: 40%" title="Mon"></div>
+                        <div class="mock-bar" style="height: 60%" title="Tue"></div>
+                        <div class="mock-bar" style="height: 55%" title="Wed"></div>
+                        <div class="mock-bar" style="height: 80%" title="Thu"></div>
+                        <div class="mock-bar" style="height: 90%; background-color: var(--accent-danger);"
+                            title="Fri - Deficit"></div>
+                        <div class="mock-bar" style="height: 50%" title="Sat"></div>
+                        <div class="mock-bar" style="height: 40%" title="Sun"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">System Microservices</h2>
+                    </div>
+                    <table style="margin-top:0;">
+                        <tr>
+                            <td>Irrigation Controller (IoT)</td>
+                            <td align="right"><span class="badge badge-safe">Online</span></td>
+                        </tr>
+                        <tr>
+                            <td>Livestock BLE Sync</td>
+                            <td align="right"><span class="badge badge-info">Syncing</span></td>
+                        </tr>
+                        <tr>
+                            <td>Weather API Relay</td>
+                            <td align="right"><span class="badge badge-safe">Online</span></td>
+                        </tr>
+                        <tr>
+                            <td>Drone CV Inference</td>
+                            <td align="right"><span class="badge badge-warn">Standby</span></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. IRRIGATION -->
+        <div id="page-irrigation" class="page">
+            <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h1 class="page-title">Precision Irrigation Hub</h1>
+                    <p class="page-subtitle">Automated watering driven by real-time ETc and soil telemetry.</p>
+                </div>
+                <button class="btn btn-primary" onclick="refreshSensors(this)">🔄 Sync Sensors</button>
+            </div>
+
+            <div class="grid-3">
+                <div class="card">
+                    <h3 style="margin:0 0 15px 0; color:var(--text-main);">Zone 1 (Tomato)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-size:2.5rem; font-weight:700; color:var(--accent-danger);"
+                                id="z1-soil">22%</span>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Moisture
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="font-size:1.5rem; font-weight:600; color:#fff;" id="z1-def">-2.1 mm</span>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Deficit
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress-container" id="prog-container-z1">
+                        <div class="progress-bar" id="prog-z1"></div>
+                    </div>
+                    <hr style="border-color:var(--border-color); margin: 20px 0;">
+                    <button class="btn btn-primary" style="width:100%;" id="btn-irrigate-z1"
+                        onclick="startIrrigation('1', this, '-2.1 mm')">▶ Start Auto-Cycle (2.1mm)</button>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin:0 0 15px 0; color:var(--text-main);">Zone 2 (Potato)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-size:2.5rem; font-weight:700; color:var(--accent-success);">45%</span>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Moisture
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="font-size:1.5rem; font-weight:600; color:#fff;">0.0 mm</span>
+                            <div style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">Deficit
+                            </div>
+                        </div>
+                    </div>
+                    <hr style="border-color:var(--border-color); margin: 20px 0;">
+                    <button class="btn" style="width:100%;" disabled>System Optimal (Standby)</button>
+                </div>
+
+                <div class="card" style="background: linear-gradient(180deg, var(--bg-color), var(--panel-bg));">
+                    <div class="card-header" style="border:none; margin-bottom:0;">
+                        <h2 class="card-title">Weather API Station</h2>
+                    </div>
+                    <div style="font-size: 3rem; text-align:center; margin:10px 0;">⛅</div>
+                    <table style="margin-top:0;">
+                        <tr>
+                            <td style="color:var(--text-muted);">Temperature</td>
+                            <td align="right" style="font-weight:600;">26.4°C</td>
+                        </tr>
+                        <tr>
+                            <td style="color:var(--text-muted);">Humidity</td>
+                            <td align="right" style="font-weight:600; color:var(--accent-primary);">48%</td>
+                        </tr>
+                        <tr>
+                            <td style="color:var(--text-muted);">Wind Vector</td>
+                            <td align="right" style="font-weight:600;">4.2 m/s NW</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. LIVESTOCK -->
+        <div id="page-livestock" class="page">
+            <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h1 class="page-title">Livestock Manager</h1>
+                    <p class="page-subtitle">Track biometric growth and clinical health records in real-time.</p>
+                </div>
+                <button class="btn btn-primary" id="btn-fetch-vitals" onclick="fetchNewVitals(this)">📥 Fetch BLE Collar
+                    Data</button>
+            </div>
+
+            <div class="card" style="padding:0;">
+                <div class="card-header" style="padding: 24px 24px 0 24px; border:none;">
+                    <h2 class="card-title">Health Monitoring Log</h2>
+                </div>
+                <table id="livestock-table">
+                    <thead>
+                        <tr>
+                            <th>Tag Number</th>
+                            <th>Species/Breed</th>
+                            <th>Body Temp (°C)</th>
+                            <th>Status</th>
+                            <th>Intervention</th>
+                        </tr>
+                    </thead>
+                    <tbody id="livestock-body">
+                        <tr id="row-8921">
+                            <td style="font-weight:600;">#TAG-8921</td>
+                            <td>Cattle (Angus)</td>
+                            <td style="color:var(--accent-danger); font-weight:bold;">39.8°</td>
+                            <td><span class="badge badge-warn">Fever Alert</span></td>
+                            <td><button class="btn btn-danger" style="padding:6px 12px; font-size:0.8rem;"
+                                    onclick="administerMeds('row-8921', this)">Log Treatment</button></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight:600;">#TAG-4412</td>
+                            <td>Sheep (Merino)</td>
+                            <td>39.1°</td>
+                            <td><span class="badge badge-safe">Healthy</span></td>
+                            <td><span style="color:var(--text-muted); font-size:0.8rem;">None Required</span></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight:600;">#TAG-8833</td>
+                            <td>Cattle (Holstein)</td>
+                            <td>38.5°</td>
+                            <td><span class="badge badge-safe">Healthy</span></td>
+                            <td><span style="color:var(--text-muted); font-size:0.8rem;">None Required</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. AGENTIC AI (RAG) -->
+        <div id="page-rag" class="page">
+            <div class="page-header">
+                <h1 class="page-title">Agentic AI Copilot</h1>
+                <p class="page-subtitle">Ask technical agricultural questions powered by RAG and your farm's live DB.
+                </p>
+            </div>
+
+            <div class="grid-2" style="grid-template-columns: 2.5fr 1fr;">
+                <div class="card chat-container" style="padding: 0; display:flex; flex-direction:column;">
+                    <div class="card-header"
+                        style="padding:20px; border-bottom:1px solid var(--border-color); margin:0; background:rgba(0,0,0,0.2);">
+                        <h2 class="card-title">👨‍🔬 Chat with SanIA</h2>
+                    </div>
+
+                    <div class="chat-history" id="chat-box">
+                        <div class="msg-wrapper bot">
+                            <div class="msg-sender">SanIA Agent</div>
+                            <div class="msg bot">Hello! I am your AI Copilot. I have full read access to the SQL
+                                Datasets, IoT Telemetry, and the uploaded Expert Manuals (e.g., FAO-56, Pest Management
+                                guidelines). How can I assist you today?</div>
+                        </div>
+                    </div>
+
+                    <div class="typing-indicator" id="typing">
+                        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                        </div>
+                    </div>
+
+                    <div style="padding:20px; background:var(--bg-color); border-top:1px solid var(--border-color);">
+                        <div class="chat-input" style="margin:0;">
+                            <input type="text" id="chat-input-text"
+                                placeholder="e.g., What is the PHI for Mancozeb on Tomatoes?"
+                                onkeypress="if(event.key === 'Enter') simulateRagChat()">
+                            <button class="btn btn-primary" onclick="simulateRagChat()">Send</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="height: fit-content;">
+                    <div class="card-header">
+                        <h2 class="card-title">Retrieved Context</h2>
+                    </div>
+                    <div id="rag-context-area" style="font-size:0.9rem;">
+                        <div style="color:var(--text-muted); text-align:center; padding: 20px 0; font-style:italic;">
+                            Awaiting query to parse vector database...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SCRIPTS FOR SIMULATIONS -->
+    <script>
+        // --- Navigation ---
+        let breadcrumbNames = { 'page-dashboard': 'Overview', 'page-irrigation': 'Precision Irrigation', 'page-livestock': 'Livestock Manager', 'page-rag': 'AI Copilot' };
+
+        function switchPage(pageId, element) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+
+            document.getElementById('breadcrumb').innerText = breadcrumbNames[pageId];
+        }
+
+        // --- Toast Notifications System ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            let icon = '✅';
+            if (type === 'error') icon = '❌';
+            if (type === 'info') icon = 'ℹ️';
+
+            toast.innerHTML = `<span style="font-size:1.2rem;">${icon}</span> <div>${message}</div>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => container.removeChild(toast), 300);
+            }, 3000);
+        }
+
+        // --- Simulated Functionalities ---
+
+        // 1. Irrigation
+        function refreshSensors(btn) {
+            btn.innerHTML = '<span class="spinner"></span> Syncing...';
+            btn.disabled = true;
+            setTimeout(() => {
+                btn.innerHTML = '🔄 Sync Sensors';
+                btn.disabled = false;
+                showToast('IoT Sensors synchronized successfully.', 'success');
+            }, 1000);
+        }
+
+        function startIrrigation(zone, btn, amount) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Establishing Comm...';
+
+            setTimeout(() => {
+                showToast(`Connected to Zone ${zone} Valve Node.`, 'info');
+
+                const progContainer = document.getElementById('prog-container-z1');
+                const progBar = document.getElementById('prog-z1');
+                progContainer.style.display = 'block';
+
+                let progress = 0;
+                btn.innerHTML = `Irrigating... supplying ${amount}`;
+
+                const interval = setInterval(() => {
+                    progress += 20;
+                    progBar.style.width = progress + '%';
+
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        btn.classList.add('btn-success');
+                        btn.classList.remove('btn-primary');
+                        btn.innerHTML = '✅ Cycle Complete (Target Reached)';
+
+                        // Update UI values
+                        const soilText = document.getElementById('z1-soil');
+                        soilText.innerText = '40%';
+                        soilText.style.color = 'var(--accent-success)';
+                        document.getElementById('z1-def').innerText = '0.0 mm';
+
+                        setTimeout(() => progContainer.style.display = 'none', 1000);
+                        showToast(`Zone ${zone} irrigation cycle finished.`, 'success');
+                    }
+                }, 800);
+            }, 1000);
+        }
+
+        // 2. Livestock
+        function fetchNewVitals(btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Parsing SQL DB...';
+
+            setTimeout(() => {
+                btn.innerHTML = '📥 Fetch BLE Collar Data';
+                btn.disabled = false;
+                showToast('Synced 32 new biometric records. Found 1 anomaly.', 'error');
+
+                const tbody = document.getElementById('livestock-body');
+                const tr = document.createElement('tr');
+                tr.id = "row-new";
+                tr.style.animation = "fadeIn 1s";
+                tr.style.background = "rgba(239, 68, 68, 0.1)"; // highlight new red row
+                tr.innerHTML = `
+                    <td style="font-weight:600;">#TAG-6022</td><td>Cattle (Angus)</td>
+                    <td style="color:var(--accent-danger); font-weight:bold;">40.1°</td>
+                    <td><span class="badge badge-warn">Severe Fever</span></td>
+                    <td><button class="btn btn-danger" style="padding:6px 12px; font-size:0.8rem;" onclick="administerMeds('row-new', this)">Log Treatment</button></td>
+                `;
+                tbody.insertBefore(tr, tbody.firstChild);
+
+                setTimeout(() => tr.style.background = "transparent", 2000);
+            }, 1500);
+        }
+
+        function administerMeds(rowId, btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Submitting...';
+
+            setTimeout(() => {
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-success');
+                btn.innerHTML = 'Treatment Logged';
+
+                // Update badge
+                const row = document.getElementById(rowId);
+                const badgeTd = row.children[3];
+                badgeTd.innerHTML = '<span class="badge badge-info">Under Treatment</span>';
+
+                showToast('Medical intervention successfully recorded in relational database.', 'success');
+            }, 1000);
+        }
+
+        // 3. RAG Chatbot
+        const queries = [
+            "What is the required Pre-Harvest interval for Mancozeb on Tomatoes?",
+            "Given the 39.8C fever in my Angus cattle, what are the recommended diagnostic steps?",
+            "Can you explain how Evapotranspiration works in our system?"
+        ];
+        let queryIndex = 0;
+        document.getElementById('chat-input-text').value = queries[0];
+
+        function simulateRagChat() {
+            const inputEl = document.getElementById('chat-input-text');
+            const msg = inputEl.value.trim();
+            if (!msg) return;
+
+            const chatBox = document.getElementById('chat-box');
+            const typing = document.getElementById('typing');
+            const contextArea = document.getElementById('rag-context-area');
+
+            // Add User msg
+            chatBox.innerHTML += `
+                <div class="msg-wrapper user">
+                    <div class="msg-sender">Farm Admin</div>
+                    <div class="msg user">${msg}</div>
+                </div>
+            `;
+            inputEl.value = '';
+
+            // Generate next placeholder question for demo purposes
+            queryIndex++;
+            if (queryIndex < queries.length) {
+                setTimeout(() => inputEl.value = queries[queryIndex], 5000);
+            }
+
+            chatBox.appendChild(typing);
+            typing.style.display = 'block';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Simulate Agent "Thinking" & Fetching Context
+            setTimeout(() => {
+                contextArea.innerHTML = `
+                    <p style="color:var(--accent-primary); font-weight:600;">📄 tomato_expert_manual.txt<br>
+                    <span style="color:var(--text-muted); font-size:0.8rem; font-weight:normal;">Chunk ID: 89 - Confidence: 0.94</span><br>
+                    <span style="color:var(--text-muted); font-size:0.8rem; font-weight:normal;">Highlight: "...Mancozeb is a Group M05 fungicide. The PHI for tomatoes is 5 days..."</span>
+                    </p>
+                    <hr style="border-color:var(--border-color); margin:10px 0;">
+                    <p style="color:var(--accent-success); font-weight:600;">📊 Regulatory DB (treatment_2.csv)<br>
+                    <span style="color:var(--text-muted); font-size:0.8rem; font-weight:normal;">Query: SELECT phi FROM safety WHERE chemical='Mancozeb' AND crop='Tomato'</span>
+                    </p>
+                `;
+                showToast('RAG Engine successfully retrieved context from 2 sources.', 'info');
+            }, 1000);
+
+            // Simulate Agent Replying
+            setTimeout(() => {
+                typing.style.display = 'none';
+
+                let reply = "Based on the `tomato_expert_manual.txt` and the regulatory database (`treatment_2.csv`), **Mancozeb (Group M05)** has a mandatory Pre-Harvest Interval (PHI) of **5 days** when applied to Tomatoes.<br><br>Ensure you log the exact date of application in the system to prevent premature harvesting warnings.";
+
+                // If they asked the cattle question
+                if (msg.includes("Angus")) {
+                    contextArea.innerHTML = `<p style="color:var(--accent-success); font-weight:600;">🥩 Livestock SQL DB<br><span style="color:var(--text-muted); font-size:0.8rem; font-weight:normal;">Querying clinical history for TAG-8921...</span></p>`;
+                    reply = "A body temperature of 39.8°C constitutes a high fever (normal limits for adult cattle are 38.0°C - 39.0°C). <br><br>I have checked the SQL health records, and no previous recurring alerts exist for this tag. **Immediate Steps:**<br>1. Isolate the animal.<br>2. Look for secondary symptoms like lethargy or foot lesions.<br>3. Administer broad-spectrum antibiotics and click 'Log Treatment' on the Livestock Manager page.";
+                }
+
+                chatBox.innerHTML += `
+                    <div class="msg-wrapper bot" style="animation: fadeIn 0.3s">
+                        <div class="msg-sender">SanIA Agent <span style="font-size:0.7rem; background:var(--accent-success); color:#fff; padding:2px 6px; border-radius:4px; margin-left:5px;">AI Gen</span></div>
+                        <div class="msg bot">${reply}</div>
+                    </div>
+                `;
+                chatBox.append(typing); // move indicator back to bottom for next time
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 2500);
+        }
+    </script>
+</body>
+
+</html>

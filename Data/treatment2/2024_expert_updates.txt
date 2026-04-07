@@ -1,0 +1,19 @@
+
+# 2024/2025 Expert Agricultural Updates (Scraped Guidance)
+# Sources: Cornell, NC State Extension, Oregon State (site:.edu)
+
+[POTATO - 2024 UPDATE]
+- Fungicide Resistance: High resistance to Mefenoxam found in 2024 strains of Late Blight. Recommendations shifted toward Mandipropamid (Revus) and Cyazofamid (Ranman).
+- Biologicals: Stargus (Bacillus amyloliquefaciens) now recommended for integrated organic management of Early Blight.
+
+[TOMATO - 2024 UPDATE]
+- Septoria & Early Blight: Combination of Chlorothalonil with Zinc increases leaf adherence. 2024 trials show Drip Irrigation + Plastic Mulch reduces Septoria outbreak by 60%.
+- Yellow Leaf Curl: Reflective silver mulches are the current 'Gold Standard' for whitefly vector exclusion in 2024 guides.
+
+[APPLE - 2024 UPDATE]
+- Apple Scab: Shifts toward 'Eco-Apple' approved sprays. 2024 guidelines emphasize Bio-pesticides like 'Theia' and 'Romeo' for disease management to improve pollinator safety.
+- Fire Blight: High alert for Streptomycin resistance; Kasugamycin is the 2024 backup protocol.
+
+[GRAPE - 2024 UPDATE]
+- Black Rot: 2024 Pennsylvania guides emphasize the 'Bloom through 4 weeks post-bloom' window as the only effective window for fruit protection.
+- Esca/Trunk Diseases: Vintec (Trichoderma atroviride) is the top-rated 2024 biological wound protectant for pruning season.

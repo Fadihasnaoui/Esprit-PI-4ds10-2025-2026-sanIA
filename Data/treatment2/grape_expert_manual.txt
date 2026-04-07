@@ -1,0 +1,15 @@
+
+# UC IPM - Viticulture Extension Guidelines
+# Crop: Grape (Vitis vinifera)
+# Topic: Black Rot Management
+
+1. Cultural Controls:
+Pruning is the most effective way to manage Black Rot. Removing 'mummies' (shriveled infected berries) reduces up to 90% of the primary inoculum for the next spring.
+
+2. Professional Treatment:
+- Fungicide Timing: The most critical period for spraying is from 'immediate pre-bloom' through 4 weeks post-bloom.
+- Resistance Management: Rotate DMIs (e.g., Myclobutanil) with Strobilurins.
+- Organic Options: Copper fungicides are effective but can cause 'stunting' in cold, wet springs.
+
+3. Irrigation & Quality:
+According to FAO-56, grapes have low water demand early in the season (Kc 0.3). 'Regulated Deficit Irrigation' (RDI) is often used post-veraison to increase sugar content and polyphenols.

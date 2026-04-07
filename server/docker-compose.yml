@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  db:
+    image: timescale/timescaledb-ha:pg15-latest
+    container_name: sania_db
+    environment:
+      - POSTGRES_DB=sania_ai
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=sania_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
