@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Map, Plus, ChevronRight, ChevronDown, Thermometer, Droplets, X, Leaf, Activity, Clock, Waves, BarChart3, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { fieldService, sensorService, ndviService } from '../services/api';
+import SatelliteSegmentation from '../components/SatelliteSegmentation';
 
 const cropEmojis = { Tomato: '🍅', Grape: '🍇', Potato: '🥔', Apple: '🍎', default: '🌱' };
 
@@ -345,6 +346,11 @@ const FieldsDashboard = () => {
           <Plus size={16} /> Nouvelle Parcelle
         </button>
       </div>
+
+      {/* Satellite Segmentation Section (Pillar 2) */}
+      <SatelliteSegmentation />
+
+      <div style={{ marginTop: '3rem' }}></div>
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>

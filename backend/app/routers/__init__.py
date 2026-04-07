@@ -5,3 +5,4 @@ from . import animals
 from . import scans
 from . import ndvi
 from . import alerts
+from . import segmentation

@@ -55,4 +55,13 @@ export const ndviService = {
   getHistory: (fieldId, weeks = 8) => api.get(`/ndvi/${fieldId}?weeks=${weeks}`),
 };
 
+export const segmentationService = {
+  autoDetect: (formData) => api.post('/segmentation/auto-detect', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  calculateNdvi: (formData) => api.post('/segmentation/calculate-ndvi', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+};
+
 export default api;
