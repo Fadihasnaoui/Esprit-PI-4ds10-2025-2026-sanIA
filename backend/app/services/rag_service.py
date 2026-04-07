@@ -31,8 +31,13 @@ _chunk_metadata: List[Dict[str, Any]] = []
 _model = None
 
 DATA_DIR = Path(settings.RAG_DATA_DIR)
-INDEX_FILE = DATA_DIR / "vector_index.bin"
-METADATA_FILE = DATA_DIR / "metadata.pkl"
+# Les fichiers persistants sont stockés dans le dossier parent de DATA_DIR
+_PERSIST_DIR = DATA_DIR.parent
+INDEX_FILE = _PERSIST_DIR / "vector_index.bin"
+METADATA_FILE = _PERSIST_DIR / "metadata.pkl"
+
+# Nom du fichier Excel arabe (utilisé pour le routing arabe)
+ARABIC_XLSX = "translated_agronomic_ar.xlsx"
 
 
 class OllamaEmbeddingModel:
@@ -126,6 +131,21 @@ def _extract_csv(path: Path) -> str:
     return "\n".join(lines)
 
 
+def _extract_xlsx(path: Path) -> str:
+    """Extrait le texte d'un fichier Excel (.xlsx) — supporte l'arabe."""
+    import pandas as pd
+    lines = []
+    try:
+        df = pd.read_excel(path, engine="openpyxl")
+        for _, row in df.iterrows():
+            parts = [f"{col}: {val}" for col, val in row.items() if pd.notna(val) and str(val).strip()]
+            if parts:
+                lines.append(" | ".join(parts))
+    except Exception as e:
+        logger.warning(f"Could not parse XLSX {path}: {e}")
+    return "\n".join(lines)
+
+
 # Chunking
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     words = text.split()
@@ -159,7 +179,11 @@ def build_index() -> int:
             continue
         
         suffix = fpath.suffix.lower()
-        if suffix not in [".pdf", ".txt", ".csv"]:
+        # Ignorer les scripts Python et autres fichiers non-documentaires
+        if suffix not in [".pdf", ".txt", ".csv", ".xlsx"]:
+            continue
+        # Ignorer les scripts helper (ex: translater.py converti en xlsx)
+        if fpath.suffix.lower() == ".py":
             continue
 
         logger.info(f"Ingesting {fpath.name} …")
@@ -170,6 +194,8 @@ def build_index() -> int:
                 text = _extract_txt(fpath)
             elif suffix == ".csv":
                 text = _extract_csv(fpath)
+            elif suffix == ".xlsx":
+                text = _extract_xlsx(fpath)
             else:
                 continue
             
@@ -244,9 +270,20 @@ def load_index() -> bool:
         return False
 
 
-# Query
+# ── Détection de langue ──────────────────────────────────────────────────────
+def _is_arabic(text: str) -> bool:
+    """Retourne True si le texte contient majoritairement des caractères arabes."""
+    arabic_chars = sum(1 for c in text if '\u0600' <= c <= '\u06FF')
+    return arabic_chars > len(text) * 0.2  # plus de 20 % de caractères arabes
+
+
+# ── Retrieval ────────────────────────────────────────────────────────────────
 def _retrieve(question: str, top_k: int = 10) -> List[Dict[str, Any]]:
-    """Retrieves top-K chunks, matching against a loaded index."""
+    """Retrieves top-K chunks.
+    
+    Si la question est en arabe, les chunks provenant du fichier XLSX arabe
+    sont remontés en priorité (top) dans les résultats.
+    """
     global _index
     
     # Lazy load from disk if not already in memory
@@ -258,12 +295,16 @@ def _retrieve(question: str, top_k: int = 10) -> List[Dict[str, Any]]:
     q_vec = model.encode([question], show_progress_bar=False)
     q_vec = np.array(q_vec, dtype="float32")
     
-    distances, indices = _index.search(q_vec, top_k)
-    results = []
+    arabic_mode = _is_arabic(question)
+    # En mode arabe, on cherche plus large pour avoir assez de chunks arabes
+    search_k = top_k * 4 if arabic_mode else top_k
+    
+    distances, indices = _index.search(q_vec, min(search_k, len(_chunks)))
+    all_results = []
     for rank, (idx, distance) in enumerate(zip(indices[0], distances[0]), start=1):
         if 0 <= idx < len(_chunks):
             meta = _chunk_metadata[idx]
-            results.append({
+            all_results.append({
                 "rank": rank,
                 "score": float(distance),
                 "source": meta["source"],
@@ -271,7 +312,27 @@ def _retrieve(question: str, top_k: int = 10) -> List[Dict[str, Any]]:
                 "chunk_id": meta["chunk_id"],
                 "content": meta["content"],
             })
-    return results
+    
+    if not arabic_mode:
+        return all_results[:top_k]
+    
+    # Mode arabe : UNIQUEMENT les chunks arabes — pas de mélange avec l'anglais
+    # car le LLM suit la langue du contexte, pas les instructions
+    arabic_chunks = [r for r in all_results if r["filename"] == ARABIC_XLSX]
+    
+    # Si aucun chunk arabe trouvé, fallback sur les autres
+    if not arabic_chunks:
+        logger.warning("[Arabic mode] No Arabic chunks found, falling back to all chunks.")
+        merged = all_results[:top_k]
+    else:
+        merged = arabic_chunks[:top_k]
+    
+    # Renuméroter les ranks
+    for i, item in enumerate(merged, start=1):
+        item["rank"] = i
+    
+    logger.info(f"[Arabic mode] {len(arabic_chunks)} Arabic chunks found, returning {len(merged)} (Arabic only).")
+    return merged
 
 
 def _is_greeting(text: str) -> bool:
@@ -321,7 +382,9 @@ Respond warmly and ask how you can help with their farm today. Keep it very shor
             return {"answer": "Bonjour ! Comment puis-je vous aider ?", "sources": []}
 
     # 2. Technical Query: Full RAG Pipeline
-    retrieved = _retrieve(question, top_k=5)
+    # En mode arabe, récupérer plus de chunks pour avoir assez de contenu arabe
+    top_k = 10 if _is_arabic(question) else 5
+    retrieved = _retrieve(question, top_k=top_k)
     
     if not retrieved:
         return {
@@ -334,7 +397,25 @@ Respond warmly and ask how you can help with their farm today. Keep it very shor
 
     context = "\n\n---\n\n".join([item["content"] for item in retrieved])
 
-    prompt = f"""You are an expert agricultural assistant for the Sania AgriSmart platform.
+    # ── Prompt spécifique selon la langue détectée ────────────────────────────
+    if _is_arabic(question):
+        # Prompt renforcé : instruction de langue AVANT et APRÈS le contexte
+        prompt = f"""[تعليمات النظام]: أنت مساعد زراعي خبير لمنصة Sania AgriSmart. لغة الإجابة المطلوبة: العربية فقط. يُحظر استخدام الإنجليزية أو الفرنسية.
+
+بناءً على السياق التالي فقط، أجب على سؤال المستخدم بشكل مفصل باللغة العربية.
+إذا لم تجد المعلومات الكافية في السياق، قل بالعربية: "لا تتوفر لديّ معلومات كافية حول هذا الموضوع."
+
+[السياق المتاح]:
+{context}
+
+[سؤال المستخدم]:
+{question}
+
+[تذكير]: يجب أن تكون إجابتك الآن كاملة باللغة العربية فقط، ولا تستخدم الإنجليزية أو الفرنسية أبداً.
+
+[الإجابة بالعربية]:"""
+    else:
+        prompt = f"""You are an expert agricultural assistant for the Sania AgriSmart platform.
 
 YOUR TASKS:
 1. Identify the language of the user's QUESTION.
@@ -344,14 +425,13 @@ YOUR TASKS:
 
 CRITICAL INSTRUCTION ON LANGUAGE:
 No matter what language the CONTEXT is in, you MUST reply entirely in the EXACT SAME LANGUAGE as the user's QUESTION.
-- If QUESTION is in Arabic -> Your response MUST be 100% in Arabic (e.g., "مرحباً، بناءً على المعلومات...").
-- If QUESTION is in French -> Your response MUST be 100% in French (e.g., "Bonjour, d'après les informations...").
-- If QUESTION is in English -> Your response MUST be 100% in English (e.g., "Hello, based on the information...").
+- If QUESTION is in French -> Your response MUST be 100% in French.
+- If QUESTION is in English -> Your response MUST be 100% in English.
 
 CONTEXT:
 {context}
 
-QUESTION (Please answer in the same language as this question):
+QUESTION:
 {question}
 
 RESPONSE:"""
