@@ -49,6 +49,7 @@ const FieldMap = ({
   zoom = 13,
   showNdvi = false,
   diagnosticData = null,
+  vraData = null,
 }) => {
   const [points, setPoints] = useState(initialPolygon);
   const [map, setMap] = useState(null);
@@ -164,8 +165,27 @@ const FieldMap = ({
                 </div>
               </div>
             </Popup>
+          </Polygon>
+        ))}
 
-
+        {/* VRA Map Overlay (Grid Slices) */}
+        {showNdvi && vraData?.spatial_overlay && vraData.spatial_overlay.map((zone, idx) => (
+          <Polygon
+            key={`vra-${idx}`}
+            positions={zone.polygon}
+            pathOptions={{
+              fillColor: zone.color,
+              fillOpacity: 0.65,
+              stroke: true,
+              color: 'rgba(0,0,0,0.1)',
+              weight: 1,
+            }}
+          >
+            <Popup>
+              <div style={{ padding: '0.2rem', fontSize: '0.75rem', fontWeight: 'bold', color: zone.color }}>
+                {zone.label}
+              </div>
+            </Popup>
           </Polygon>
         ))}
 

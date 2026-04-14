@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, ChevronRight, ChevronDown, Activity, Syringe, Pill, HeartPulse, Milk } from 'lucide-react';
 import { livestockService } from '../services/api';
+import ScrollReveal from '../components/ScrollReveal';
 
 const AnimalCard = ({ animal, delay }) => {
   const [expanded, setExpanded] = useState(false);
@@ -38,7 +39,7 @@ const AnimalCard = ({ animal, delay }) => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', fontFamily: "'Newsreader', serif", color: 'var(--text-bright)' }}>
                 {animal.tag_id}
               </h3>
               <span className="badge" style={{ background: 'rgba(212, 168, 67, 0.1)', color: 'var(--sand-gold)', border: '1px solid rgba(212, 168, 67, 0.2)' }}>
@@ -53,15 +54,15 @@ const AnimalCard = ({ animal, delay }) => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.2rem' }}>
-        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Vaccinations</div>
-          <div style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--primary)' }}>
+        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.8rem', borderRadius: '12px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)' }}>
+          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.9)', fontWeight: '700', marginBottom: '0.2rem' }}>Vaccinations</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: '900', color: 'var(--primary)', textShadow: '0 2px 10px rgba(117, 218, 168, 0.3)' }}>
             {animal.vaccinations?.length || 0}
           </div>
         </div>
-        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '8px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Traitements</div>
-          <div style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--terracotta)' }}>
+        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.8rem', borderRadius: '12px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)' }}>
+          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.9)', fontWeight: '700', marginBottom: '0.2rem' }}>Traitements</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: '900', color: 'var(--terracotta)', textShadow: '0 2px 10px rgba(199, 91, 57, 0.3)' }}>
             {animal.treatments?.length || 0}
           </div>
         </div>
@@ -162,13 +163,14 @@ const AnimalsDashboard = () => {
   return (
     <div style={{ padding: '2rem 0' }}>
        {/* Header */}
+       <ScrollReveal>
        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
             <span style={{ fontSize: '1.2rem' }}>🐄</span>
             <span style={{ fontSize: '0.7rem', color: 'var(--sand-gold)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '600' }}>Gestion du Cheptel</span>
           </div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.8rem', fontWeight: '700', color: 'var(--text-bright)' }}>
+          <h2 style={{ fontFamily: "'Newsreader', serif", fontSize: '1.8rem', fontWeight: '700', color: 'var(--text-bright)' }}>
             Animaux & <span className="gradient-text-warm">Suivi Vétérinaire</span>
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
@@ -179,8 +181,10 @@ const AnimalsDashboard = () => {
           <Plus size={16} /> Ajouter un animal
         </button>
       </div>
+       </ScrollReveal>
 
       {/* Filters */}
+      <ScrollReveal delay={0.05}>
       <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           type="text" placeholder="🔍 Rechercher (ID, race)..."
@@ -189,7 +193,7 @@ const AnimalsDashboard = () => {
             background: 'rgba(255,255,255,0.04)', border: '1px solid var(--glass-border)',
             padding: '0.6rem 1rem', borderRadius: 'var(--radius-md)', color: 'var(--text-light)',
             fontSize: '0.9rem', width: '100%', maxWidth: '300px',
-            fontFamily: "'Inter', sans-serif",
+            fontFamily: "'Manrope', sans-serif",
           }}
         />
         <div style={{ display: 'flex', gap: '0.3rem', background: 'var(--glass)', padding: '0.25rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--glass-border)' }}>
@@ -211,6 +215,7 @@ const AnimalsDashboard = () => {
           ))}
         </div>
       </div>
+      </ScrollReveal>
 
       {/* Grid */}
       {loading ? (
@@ -218,11 +223,13 @@ const AnimalsDashboard = () => {
           <div className="floating"><Activity size={40} color="var(--primary)" /></div>
         </div>
       ) : (
+        <ScrollReveal delay={0.08}>
         <div className="grid-cols-3">
           {filteredAnimals.map((animal, i) => (
             <AnimalCard key={animal.id} animal={animal} delay={i % 6} />
           ))}
         </div>
+        </ScrollReveal>
       )}
 
       {filteredAnimals.length === 0 && !loading && (

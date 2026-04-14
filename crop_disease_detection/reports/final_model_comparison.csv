@@ -1,4 +1,4 @@
 Architecture,Val Accuracy (%),Model Size (MB),Latency (ms/img)
-MobileNetV3Large,99.01,36.5,11.01
-EfficientNetB0,98.77,49.1,14.42
-ResNet50V2,98.13,283.18,19.95
+MobileNetV3Large,95.34,36.6,9.79
+EfficientNetB0,94.85,49.01,12.33
+ResNet50V2,93.64,283.11,19.88

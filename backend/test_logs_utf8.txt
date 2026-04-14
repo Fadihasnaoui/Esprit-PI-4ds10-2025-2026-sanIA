@@ -1,0 +1,15 @@
+﻿Found 14 polygons
+Polygon 'Iowa Demo Field' (ID: 69c3f1f81be1fb0008fa5624) -> Images: 113
+Polygon 'Field_20260325171559' (ID: 69c40a414e13cbdd7cfade57) -> Images: 133
+Polygon 'Field_40b5de96-cdd4-487e-9dd3-8b9b8f5916a0_20260325' (ID: 69c413320ece804c01e02863) -> Images: 135
+Polygon 'Field_1237f5c2-f29e-4300-a8a5-e58fc43a3597_20260325' (ID: 69c4135dce8f5712d1dd7c95) -> Images: 0
+Polygon 'Field_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa_20260325' (ID: 69c413664e13cb1f5bfade58) -> Images: 0
+Polygon 'Field_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb_20260325' (ID: 69c4136b63eb0caa9362a9d5) -> Images: 24
+Polygon 'Field_cccccccc-cccc-cccc-cccc-cccccccccccc_20260325' (ID: 69c41373fc4d160006b93891) -> Images: 26
+Polygon 'Field_4a60a55d-3e59-422c-b559-2d8c054f3964_20260325' (ID: 69c41379fc4d16361fb93892) -> Images: 0
+Polygon 'Field_200e9ef9-c937-4595-bfe7-d45529c72953_20260325' (ID: 69c41458fc4d1661ecb93893) -> Images: 89
+Polygon 'Field_53ac7d9b-f23c-4e10-b7e8-dcdc192fd64e_20260325' (ID: 69c414a20ece80646fe02864) -> Images: 0
+Polygon 'Field_08a19b38-3bf0-4a88-a50b-9a6e1785d87b_20260325' (ID: 69c4151cb439239f20e953bc) -> Images: 0
+Polygon 'Field_dddddddd-dddd-dddd-dddd-dddddddddddd_20260325' (ID: 69c41541ce8f5757d9dd7c97) -> Images: 30
+Polygon 'Field_200e9ef9-c937-4595-bfe7-d45529c72953_20260325' (ID: 69c415b0646c65e4239fd1d5) -> Images: 89
+Polygon 'Field_be300a16-7bcd-4fed-8b00-af4b9b2d09d8_20260325' (ID: 69c4162c63eb0ce4c562a9d6) -> Images: 90

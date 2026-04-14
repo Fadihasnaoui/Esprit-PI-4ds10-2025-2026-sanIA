@@ -65,7 +65,7 @@ const AIAssistant = ({ isOpen, setIsOpen }) => {
               <div>
                 <h3 style={{ 
                   fontSize: '0.95rem', 
-                  fontFamily: "'Playfair Display', serif",
+                  fontFamily: "'Newsreader', serif",
                   fontWeight: '700',
                   color: 'var(--text-bright)',
                 }}>

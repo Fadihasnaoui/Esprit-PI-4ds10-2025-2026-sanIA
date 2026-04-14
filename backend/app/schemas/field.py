@@ -9,6 +9,12 @@ class FieldBase(BaseModel):
     area_ha: float
     polygon_geojson: Optional[str] = None
 
+class FieldUpdate(BaseModel):
+    name: Optional[str] = None
+    crop_type: Optional[str] = None
+    area_ha: Optional[float] = None
+    polygon_geojson: Optional[str] = None
+
 class FieldCreate(FieldBase):
     farm_id: UUID
 

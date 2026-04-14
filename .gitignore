@@ -4,9 +4,13 @@ __pycache__/
 *$py.class
 .venv/
 venv/
+*venv*/
 ENV/
 env/
 .env
+
+# Node
+node_modules/
 
 # IDs and editors
 .vscode/
@@ -29,18 +33,12 @@ DigitalTwinUnity/Builds/
 Thumbs.db
 Desktop.ini
 
-# Project Big Folders
-Data/
-.venv/
-.vs/
-.vscode/
-DigitalTwinUnity/
-server/
-website/
-backend/
-
-
+# Specific project exclusions
+severity_analysis/
 crop_disease_detection/models/
 crop_disease_detection/data/
 crop_disease_detection/reports/logs/
-
+mobile/.expo/
+mobile/dist/
+*.log
+.DS_Store

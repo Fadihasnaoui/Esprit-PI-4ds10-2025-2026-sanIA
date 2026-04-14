@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Droplets, Thermometer, Activity, TreePine, Bug, Zap, AlertTriangle, CheckCircle, Clock, RefreshCw, ChevronRight, Leaf, Wind } from 'lucide-react';
-import { alertService, livestockService, fieldService, sensorService, diseaseService } from '../services/api';
+import { alertService, livestockService, fieldService, sensorService, diseaseService, vraService } from '../services/api';
+import ScrollReveal from './ScrollReveal';
 
 /* ── Animated Counter Hook ── */
 const useCounter = (target, duration = 1200) => {
@@ -23,43 +24,53 @@ const useCounter = (target, duration = 1200) => {
 const StatCard = ({ icon: Icon, label, value, unit, color, delay, trend, subtext }) => (
   <div 
     className={`glass-card animate-slide-up delay-${delay}`}
-    style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+    style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '1.2rem',
+      background: 'rgba(255, 255, 255, 0.08)',
+      backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+      padding: '1.5rem',
+      borderRadius: '16px'
+    }}
   >
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div style={{ 
         padding: '0.8rem', borderRadius: '14px', 
-        background: `linear-gradient(135deg, ${color}18, ${color}08)`, 
-        color, border: `1px solid ${color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `linear-gradient(135deg, ${color}25, ${color}10)`, 
+        color, border: `1px solid ${color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Icon size={22} strokeWidth={2} />
       </div>
       {trend !== undefined && (
         <span style={{
-          fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.5px',
+          fontSize: '0.7rem', fontWeight: '800', letterSpacing: '0.5px',
           padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)',
-          background: trend >= 0 ? 'rgba(139,195,74,0.1)' : 'rgba(199,91,57,0.1)',
-          color: trend >= 0 ? 'var(--primary)' : 'var(--terracotta)',
-          border: `1px solid ${trend >= 0 ? 'rgba(139,195,74,0.2)' : 'rgba(199,91,57,0.2)'}`,
+          background: trend >= 0 ? 'rgba(139,195,74,0.15)' : 'rgba(199,91,57,0.15)',
+          color: trend >= 0 ? '#8BC34A' : '#FF6B6B',
+          border: `1px solid ${trend >= 0 ? 'rgba(139,195,74,0.3)' : 'rgba(199,91,57,0.3)'}`,
         }}>
           {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}%
         </span>
       )}
       {trend === undefined && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-          <div className="status-dot online" style={{ width: '5px', height: '5px' }}></div>
-          <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase' }}>Live</span>
+          <div className="status-dot online" style={{ width: '8px', height: '8px', background: '#8BC34A', boxShadow: '0 0 10px rgba(139,195,74,0.4)' }}></div>
+          <span style={{ fontSize: '0.75rem', color: '#fff', fontWeight: '800', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Live</span>
         </div>
       )}
     </div>
     <div>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '500' }}>{label}</p>
-      <h3 style={{ fontSize: '2rem', fontWeight: '800', letterSpacing: '-1px', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>
-        {value}<span style={{ fontSize: '0.85rem', marginLeft: '5px', color: 'var(--text-dim)', fontFamily: "'Inter', sans-serif", fontWeight: '400' }}>{unit}</span>
+      <p style={{ color: '#fff', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '800', opacity: 0.8 }}>{label}</p>
+      <h3 style={{ fontSize: '2.2rem', fontWeight: '800', letterSpacing: '-1px', fontFamily: "'Newsreader', serif", color: '#fff' }}>
+        {value}<span style={{ fontSize: '0.9rem', marginLeft: '5px', color: 'rgba(255,255,255,0.7)', fontFamily: "'Manrope', sans-serif", fontWeight: '500' }}>{unit}</span>
       </h3>
     </div>
-    {subtext && <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '-0.3rem' }}>{subtext}</p>}
-    <div className="progress-bar">
-      <div className="fill" style={{ width: `${Math.min(100, typeof value === 'number' ? value : 70)}%`, background: `linear-gradient(90deg, ${color}, ${color}50)`, boxShadow: `0 0 8px ${color}30` }}></div>
+    {subtext && <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '-0.3rem', fontWeight: '500' }}>{subtext}</p>}
+    <div className="progress-bar" style={{ background: 'rgba(255,255,255,0.1)', height: '6px' }}>
+      <div className="fill" style={{ width: `${Math.min(100, typeof value === 'number' ? value : 70)}%`, background: `linear-gradient(90deg, ${color}, var(--primary))`, boxShadow: `0 2px 8px ${color}30` }}></div>
     </div>
   </div>
 );
@@ -73,7 +84,7 @@ const AlertRow = ({ alert, onResolve }) => {
     low: 'var(--primary)',
   };
   return (
-    <div className="glass-card" style={{ padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="glass-card" style={{ padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
       <div style={{
         padding: '0.5rem', borderRadius: '10px',
         background: `linear-gradient(135deg, ${sevColor[alert.severity] || 'var(--sand-gold)'}18, transparent)`,
@@ -85,7 +96,7 @@ const AlertRow = ({ alert, onResolve }) => {
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-bright)' }}>{alert.type}</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#fff' }}>{alert.type}</span>
           <span className="badge" style={{
             padding: '0.1rem 0.5rem', fontSize: '0.6rem',
             background: `${sevColor[alert.severity] || 'var(--sand-gold)'}15`,
@@ -95,7 +106,7 @@ const AlertRow = ({ alert, onResolve }) => {
             {alert.severity}
           </span>
         </div>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+        <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)' }}>
           {alert.note || 'Pas de détails'} • {new Date(alert.created_at).toLocaleDateString('fr-TN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
@@ -120,7 +131,7 @@ const AlertRow = ({ alert, onResolve }) => {
 const ScanRow = ({ scan }) => {
   const confColor = scan.confidence >= 0.9 ? 'var(--primary)' : scan.confidence >= 0.7 ? 'var(--sand-gold)' : 'var(--terracotta)';
   return (
-    <div className="glass-card" style={{ padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="glass-card" style={{ padding: '1rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
       <div style={{
         padding: '0.5rem', borderRadius: '10px',
         background: 'rgba(199, 91, 57, 0.08)', color: 'var(--terracotta)', border: '1px solid rgba(199, 91, 57, 0.15)', display: 'flex',
@@ -129,7 +140,7 @@ const ScanRow = ({ scan }) => {
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-bright)' }}>{scan.predicted_disease}</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#fff' }}>{scan.predicted_disease}</span>
           <span className="badge" style={{
             padding: '0.1rem 0.5rem', fontSize: '0.6rem',
             background: `${confColor}15`, color: confColor, border: `1px solid ${confColor}25`,
@@ -137,7 +148,7 @@ const ScanRow = ({ scan }) => {
             {(scan.confidence * 100).toFixed(0)}% confiance
           </span>
         </div>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+        <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.6)' }}>
           Culture: {scan.crop_type} • {new Date(scan.created_at).toLocaleDateString('fr-TN', { day: 'numeric', month: 'short' })}
         </p>
       </div>
@@ -157,6 +168,7 @@ const Dashboard = ({ onOpenAssistant }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState('today');
+  const [ndviHealth, setNdviHealth] = useState(null); // { avg_ndvi, health_label, health_score, date }
 
   const fetchAll = async () => {
     try {
@@ -172,12 +184,22 @@ const Dashboard = ({ onOpenAssistant }) => {
       if (scanRes.status === 'fulfilled') setScans(scanRes.value.data);
       
       if (fieldRes.status === 'fulfilled' && fieldRes.value.data.length > 0) {
-        setFields(fieldRes.value.data);
+        const fetchedFields = fieldRes.value.data;
+        setFields(fetchedFields);
+        const firstFieldId = fetchedFields[0].id;
         // Fetch sensor data for the first field
         try {
-          const sensorRes = await sensorService.getHistory(fieldRes.value.data[0].id, 1);
+          const sensorRes = await sensorService.getHistory(firstFieldId, 1);
           if (sensorRes.data.length > 0) {
             setLatestSensor(sensorRes.data[0]);
+          }
+        } catch (e) {}
+        // Fetch real satellite NDVI for the first field (same source as Satellite Map)
+        try {
+          const vraRes = await vraService.getFullAnalysis(firstFieldId);
+          const summary = vraRes.data?.ndvi_summary || {};
+          if (summary.avg_ndvi != null || summary.health_score != null) {
+            setNdviHealth(summary);
           }
         } catch (e) {}
       }
@@ -224,18 +246,19 @@ const Dashboard = ({ onOpenAssistant }) => {
   }
 
   return (
-    <section className="mosaic-bg" style={{ padding: '5rem 0', position: 'relative' }}>
+    <section id="sania-dashboard" className="mosaic-bg" style={{ padding: '5rem 0', position: 'relative' }}>
       {/* Section header */}
+      <ScrollReveal>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <span style={{ fontSize: '1.2rem' }}>🌿</span>
             <span style={{ fontSize: '0.7rem', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '600' }}>Monitoring en temps réel</span>
           </div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2.2rem', fontWeight: '700', letterSpacing: '-0.5px', color: 'var(--text-bright)' }}>
+          <h2 style={{ fontFamily: "'Newsreader', serif", fontSize: '2.2rem', fontWeight: '700', letterSpacing: '-0.5px', color: '#fff' }}>
             État Général <span className="gradient-text-warm">du Domaine</span>
           </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.4rem' }}>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.95rem', marginTop: '0.4rem' }}>
             {fields.length} parcelle{fields.length !== 1 ? 's' : ''} • {totalArea.toFixed(1)} ha • {animals.length} animal{animals.length !== 1 ? 'aux' : ''}
           </p>
         </div>
@@ -243,19 +266,19 @@ const Dashboard = ({ onOpenAssistant }) => {
           <button
             onClick={handleRefresh}
             style={{
-              padding: '0.5rem', borderRadius: '10px', border: '1px solid var(--glass-border)',
-              background: 'var(--glass)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex',
+              padding: '0.5rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex',
               transition: 'all 0.3s', animation: refreshing ? 'rotate-slow 1s linear infinite' : 'none',
             }}
           >
             <RefreshCw size={16} />
           </button>
-          <div style={{ display: 'flex', gap: '0.2rem', background: 'var(--glass)', padding: '0.25rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--glass-border)' }}>
+          <div style={{ display: 'flex', gap: '0.2rem', background: 'rgba(255,255,255,0.05)', padding: '0.25rem', borderRadius: 'var(--radius-full)', border: '1px solid rgba(255,255,255,0.1)' }}>
             {['today', 'week'].map(t => (
               <button key={t}
                 onClick={() => setTimeRange(t)}
                 className={t === timeRange ? 'btn btn-primary' : 'btn'}
-                style={{ padding: '0.4rem 1rem', fontSize: '0.72rem', borderRadius: 'var(--radius-full)', background: t === timeRange ? undefined : 'transparent', color: t === timeRange ? undefined : 'var(--text-muted)' }}
+                style={{ padding: '0.4rem 1rem', fontSize: '0.72rem', borderRadius: 'var(--radius-full)', background: t === timeRange ? undefined : 'transparent', color: t === timeRange ? undefined : 'rgba(255,255,255,0.6)' }}
               >
                 {t === 'today' ? "Aujourd'hui" : 'Semaine'}
               </button>
@@ -263,8 +286,10 @@ const Dashboard = ({ onOpenAssistant }) => {
           </div>
         </div>
       </div>
+      </ScrollReveal>
 
       {/* ───── Stats Grid ───── */}
+      <ScrollReveal delay={0.06}>
       <div className="grid-cols-3">
         <StatCard 
           icon={Droplets} label="Humidité du Sol" 
@@ -280,7 +305,20 @@ const Dashboard = ({ onOpenAssistant }) => {
         />
         <StatCard icon={Activity} label="Alertes Actives" value={animatedAlerts} unit={`/ ${alerts.length} total`} color="#e74c3c" delay={3} trend={openAlerts.length > 3 ? 12 : -5} />
         <StatCard icon={TreePine} label="Cheptel" value={animatedAnimals} unit="têtes" color="#D4A843" delay={4} subtext={`${new Set(animals.map(a => a.species)).size} espèce(s)`} />
-        <StatCard icon={Bug} label="Santé Cultures" value={diseaseRate} unit="%" color="#8BC34A" delay={5} trend={diseaseRate >= 80 ? 3 : -8} subtext={`${scans.length} scan(s) analysé(s)`} />
+        {/* NDVI Satellite Health Card — real value from same source as Satellite Map */}
+        {ndviHealth && (
+          <StatCard
+            icon={Leaf}
+            label="Santé Végétale NDVI"
+            value={ndviHealth.avg_ndvi != null ? Math.round(ndviHealth.avg_ndvi * 100) : (ndviHealth.health_score ?? '--')}
+            unit={ndviHealth.avg_ndvi != null ? '% NDVI' : '/100'}
+            color="#4CAF50"
+            delay={5}
+            trend={ndviHealth.avg_ndvi != null ? (ndviHealth.avg_ndvi >= 0.5 ? 4 : ndviHealth.avg_ndvi >= 0.3 ? 0 : -6) : undefined}
+            subtext={`${ndviHealth.health_label || ndviHealth.ndvi_label || ''} · ${ndviHealth.date || 'Mise à jour satellite'}`}
+          />
+        )}
+        <StatCard icon={Bug} label="Santé Cultures" value={diseaseRate} unit="%" color="#8BC34A" delay={ndviHealth ? 6 : 5} trend={diseaseRate >= 80 ? 3 : -8} subtext={`${scans.length} scan(s) analysé(s)`} />
         
         {/* AI Insight Card */}
         <div className="glass-card animate-slide-up delay-6" style={{ background: 'linear-gradient(145deg, rgba(139,195,74,0.08), rgba(107,142,35,0.05))', border: '1px solid rgba(139,195,74,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -290,11 +328,11 @@ const Dashboard = ({ onOpenAssistant }) => {
                 <Zap size={18} color="var(--primary)" />
               </div>
               <div>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: '700', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>SANIA AI Insight</h3>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', letterSpacing: '1px', textTransform: 'uppercase' }}>Analyse automatisée</span>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: '700', fontFamily: "'Newsreader', serif", color: '#fff' }}>SANIA AI Insight</h3>
+                <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)', letterSpacing: '1px', textTransform: 'uppercase' }}>Analyse automatisée</span>
               </div>
             </div>
-            <p style={{ fontSize: '0.9rem', marginBottom: '1.2rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontWeight: '300', fontStyle: 'italic', borderLeft: '3px solid var(--primary)', paddingLeft: '1rem' }}>
+            <p style={{ fontSize: '0.9rem', marginBottom: '1.2rem', color: 'rgba(255,255,255,0.8)', lineHeight: '1.6', fontWeight: '500', fontStyle: 'italic', borderLeft: '3px solid var(--primary)', paddingLeft: '1rem' }}>
               "{openAlerts.length > 0 ? openAlerts[0].note || `${openAlerts.length} alerte(s) requièrent votre attention urgente.` : `Tout va bien ! ${fields.length} parcelle(s) sous surveillance, ${diseaseRate}% de cultures saines.`}"
             </p>
           </div>
@@ -303,14 +341,16 @@ const Dashboard = ({ onOpenAssistant }) => {
           </button>
         </div>
       </div>
+      </ScrollReveal>
 
       {/* ───── Alerts Section ───── */}
       {alerts.length > 0 && (
+        <ScrollReveal delay={0.04}>
         <div style={{ marginTop: '3rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <AlertTriangle size={18} color="var(--terracotta)" />
-              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-bright)' }}>
+              <h3 style={{ fontFamily: "'Newsreader', serif", fontSize: '1.3rem', fontWeight: '700', color: '#fff' }}>
                 Centre d'Alertes
               </h3>
               {openAlerts.length > 0 && (
@@ -329,15 +369,17 @@ const Dashboard = ({ onOpenAssistant }) => {
             )}
           </div>
         </div>
+        </ScrollReveal>
       )}
 
       {/* ───── Disease Scans Section ───── */}
       {scans.length > 0 && (
+        <ScrollReveal delay={0.04}>
         <div style={{ marginTop: '2.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Bug size={18} color="var(--sand-gold)" />
-              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-bright)' }}>
+              <h3 style={{ fontFamily: "'Newsreader', serif", fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-bright)' }}>
                 Diagnostic Maladies
               </h3>
               <span className="badge badge-gold">{scans.length} scan{scans.length > 1 ? 's' : ''}</span>
@@ -349,6 +391,7 @@ const Dashboard = ({ onOpenAssistant }) => {
             ))}
           </div>
         </div>
+        </ScrollReveal>
       )}
 
       <div className="section-divider" style={{ marginTop: '3rem' }}></div>

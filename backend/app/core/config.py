@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     MQTT_TOPIC_SENSORS: str = "sania/sensors/#"
 
     # API Keys
-    AGROMONITORING_API_KEY: Optional[str] = os.getenv("AGROMONITORING_API_KEY")
+    AGROMONITORING_API_KEY: Optional[str] = (os.getenv("AGROMONITORING_API_KEY") or "").strip() or None
 
     class Config:
         case_sensitive = True

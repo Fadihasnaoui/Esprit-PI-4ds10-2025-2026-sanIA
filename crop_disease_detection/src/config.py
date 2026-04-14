@@ -31,8 +31,8 @@ NUM_CLASSES  = 16          # 15 plant diseases + 1 background
 
 # ── Training hyperparameters ───────────────────────────────────
 BATCH_SIZE        = 32
-# Calculate actual steps: (13719 images / 32 batch size) ≈ 428
-STEPS_PER_EPOCH   = 428    # Fixed from None to prevent infinite loops with repeated datasets
+# Calculate actual steps: (14674 images / 32 batch size) ≈ 458
+STEPS_PER_EPOCH   = 458    # Updated after merging PlantDoc real-world images
 PHASE_1_EPOCHS    = 10     # Transfer-learning head warmup (matches best model.py)
 PHASE_2_EPOCHS    = 5      # Fine-tuning with frozen BatchNorm (matches best model.py)
 PHASE_1_LR        = 1e-3

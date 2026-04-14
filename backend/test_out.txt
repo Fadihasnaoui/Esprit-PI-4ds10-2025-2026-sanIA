@@ -1,0 +1,49 @@
+Testing 12 fields against Agromonitoring API...
+
+--- Field: Champ de Pomme de Terre Bizerte (aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: Vignoble du Cap Bon (bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: Champ de Tomates Nabeul (cccccccc-cccc-cccc-cccc-cccccccccccc) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: Verger de Pommiers Kasserine (dddddddd-dddd-dddd-dddd-dddddddddddd) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: Grand champ de Sidi Bouzid (eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: Céréales de Jendouba (ffffffff-ffff-ffff-ffff-ffffffffffff) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: ain drahem (bdb4666d-05e5-49ef-8205-097f42ecc08e) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: tbarka (06199a18-c45d-47de-8c8e-93128c49826a) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: testt (6c546bb2-7714-42bb-8972-b818996e0619) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: testttt (3f4c566f-b6c3-4e59-845a-f5fb130841bc) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: rayda (a840da21-7782-4ca7-a6ff-b7153a99faa8) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}
+
+--- Field: fadi (1b389812-cc0f-4aad-aacd-4f526a7db95b) ---
+Status: 413
+Body: {"name":"PayloadTooLargeError","message":"You can not create polygons anymore."}

@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Dashboard from './components/Dashboard';
 import FieldsDashboard from './pages/FieldsDashboard';
 import AnimalsDashboard from './pages/AnimalsDashboard';
 import Analytics from './pages/Analytics';
+import SatelliteDashboard from './pages/SatelliteDashboard';
 import KnowledgeBase from './components/KnowledgeBase';
 import AIAssistant from './components/AIAssistant';
 import { authService } from './services/api';
@@ -14,6 +16,10 @@ function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAssistant, setShowAssistant] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => ScrollTrigger.refresh());
+  }, [currentPage]);
 
   React.useEffect(() => {
     authService.login('farmer@agrismart.tn', 'Farmer123!')
@@ -46,7 +52,7 @@ function App() {
         </div>
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ 
-            fontFamily: "'Playfair Display', serif",
+            fontFamily: "'Newsreader', serif",
             fontSize: '1.4rem',
             fontWeight: '700',
             marginBottom: '0.5rem',
@@ -80,13 +86,19 @@ function App() {
 
   return (
     <div className="App">
+      <div className="sania-film-grain" aria-hidden />
       <Navbar onNavigate={setCurrentPage} currentPage={currentPage} />
       
-      <main style={{ minHeight: '80vh', padding: '0 5%' }}>
+      <main
+        className={`sania-main ${currentPage === 'home' ? 'sania-main--home' : 'sania-main--subpage'}`}
+        style={currentPage === 'home' ? { padding: 0 } : { padding: '0 5%' }}
+      >
         {currentPage === 'home' && (
           <>
             <Hero onStart={() => setCurrentPage('fields')} />
-            <Dashboard onOpenAssistant={() => setShowAssistant(true)} />
+            <div className="sania-content-pad">
+              <Dashboard onOpenAssistant={() => setShowAssistant(true)} />
+            </div>
           </>
         )}
         
@@ -102,6 +114,10 @@ function App() {
           <Analytics />
         )}
 
+        {currentPage === 'satellite' && (
+          <SatelliteDashboard />
+        )}
+
         {currentPage === 'knowledge' && (
           <KnowledgeBase />
         )}
@@ -110,9 +126,8 @@ function App() {
       <AIAssistant isOpen={showAssistant} setIsOpen={setShowAssistant} />
       
       {/* Premium Footer */}
-      <footer style={{
+      <footer className="sania-footer" style={{
         padding: '3rem 5%',
-        borderTop: '1px solid var(--glass-border)',
         marginTop: '3rem',
         position: 'relative',
       }}>
@@ -144,7 +159,7 @@ function App() {
               <Leaf size={14} color="#fff" />
             </div>
             <span style={{ 
-              fontFamily: "'Playfair Display', serif",
+              fontFamily: "'Newsreader', serif",
               fontWeight: '700',
               fontSize: '0.95rem',
               color: 'var(--text-light)',

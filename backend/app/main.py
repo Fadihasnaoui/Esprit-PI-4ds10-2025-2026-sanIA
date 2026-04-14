@@ -1,7 +1,8 @@
+# Sania AgriSmart - Server Entry Point (Settings Reloaded)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals
+from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals, vra
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,3 +28,4 @@ app.include_router(fields.router, prefix=f"{settings.API_V1_STR}/fields", tags=[
 app.include_router(ndvi.router, prefix=f"{settings.API_V1_STR}/ndvi", tags=["satellite"])
 app.include_router(sensors.router, prefix=f"{settings.API_V1_STR}/sensors", tags=["sensors"])
 app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
+app.include_router(vra.router,    prefix=f"{settings.API_V1_STR}/vra",    tags=["satellite-vra"])

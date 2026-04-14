@@ -1,0 +1,1 @@
+﻿422 {"name":"UnprocessableEntityError","message":"Your polygon is duplicated your already existed polygon '69c82d8163eb0c13b962aa2d'. If you need to create the same polygon - pass the flag 'duplicated=true'"}

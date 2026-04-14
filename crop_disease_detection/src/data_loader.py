@@ -33,9 +33,11 @@ def build_balanced_train_loader(train_dir, img_size=(224, 224), batch_size=32):
     # ── Augmentation pipeline (happens in GPU/CPU memory, not on disk) ─────────
     augmentation = tf.keras.Sequential([
         tf.keras.layers.RandomFlip("horizontal_and_vertical"),
-        tf.keras.layers.RandomRotation(0.15),     # ±15% of 360°
-        tf.keras.layers.RandomContrast(0.20),     # ±20 % contrast
-        tf.keras.layers.RandomBrightness(0.20),   # ±20 % brightness
+        tf.keras.layers.RandomRotation(0.20),          # ±20% of 360°
+        tf.keras.layers.RandomZoom((-0.35, 0.10)),     # zoom out 35% / in 10% — simulates field distance
+        tf.keras.layers.RandomTranslation(0.10, 0.10), # ±10% shift — off-centre framing
+        tf.keras.layers.RandomContrast(0.40),          # ±40% contrast — outdoor lighting variation
+        tf.keras.layers.RandomBrightness(0.40),        # ±40% brightness — shadows / direct sun
     ], name="augmentation_pipeline")
 
     def _decode(file_path):

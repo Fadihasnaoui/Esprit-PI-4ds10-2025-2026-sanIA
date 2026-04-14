@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Search, ExternalLink, Bug, Activity, AlertTriangle, CheckCircle, Leaf, BookOpen, BarChart3 } from 'lucide-react';
 import { diseaseService, alertService, fieldService } from '../services/api';
+import ScrollReveal from './ScrollReveal';
 
 const staticDocs = [
   { title: "Guide de traitement du Mildiou", type: "PDF", size: "2.4 MB", date: "15 Jan 2026", icon: "🍅", color: "var(--terracotta)" },
@@ -68,20 +69,23 @@ const KnowledgeBase = () => {
   return (
     <section style={{ padding: '3rem 0' }}>
       {/* Header */}
+      <ScrollReveal>
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
           <span style={{ fontSize: '1.2rem' }}>📚</span>
           <span style={{ fontSize: '0.7rem', color: 'var(--sand-gold)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '600' }}>Centre de documentation</span>
         </div>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2rem', fontWeight: '700', color: 'var(--text-bright)' }}>
+        <h2 style={{ fontFamily: "'Newsreader', serif", fontSize: '2rem', fontWeight: '700', color: 'var(--text-bright)' }}>
           Base de <span className="gradient-text">Connaissances</span>
         </h2>
         <p style={{ color: 'var(--text-muted)', marginTop: '0.3rem' }}>
           Diagnostics IA, historique des alertes et documentation technique.
         </p>
       </div>
+      </ScrollReveal>
 
       {/* Tab navigation */}
+      <ScrollReveal delay={0.05}>
       <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '1.5rem', flexWrap: 'wrap', background: 'var(--glass)', padding: '0.3rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--glass-border)', width: 'fit-content' }}>
         {tabs.map(tab => (
           <button key={tab.id}
@@ -111,6 +115,7 @@ const KnowledgeBase = () => {
           }}
         />
       </div>
+      </ScrollReveal>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem' }}>
@@ -118,6 +123,7 @@ const KnowledgeBase = () => {
           <p style={{ color: 'var(--text-dim)', marginTop: '0.5rem' }}>Chargement...</p>
         </div>
       ) : (
+        <ScrollReveal delay={0.08}>
         <>
           {/* ═══ OVERVIEW TAB ═══ */}
           {activeTab === 'overview' && (
@@ -129,7 +135,7 @@ const KnowledgeBase = () => {
                     <Leaf size={18} color="var(--primary)" />
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Parcelles</span>
                   </div>
-                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>{fields.length}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Newsreader', serif", color: 'var(--text-bright)' }}>{fields.length}</div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{fields.reduce((s, f) => s + (f.area_ha || 0), 0).toFixed(1)} hectares au total</div>
                 </div>
                 <div className="glass-card animate-slide-up delay-2" style={{ padding: '1.2rem' }}>
@@ -137,7 +143,7 @@ const KnowledgeBase = () => {
                     <Bug size={18} color="var(--terracotta)" />
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Scans IA</span>
                   </div>
-                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>{scans.length}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Newsreader', serif", color: 'var(--text-bright)' }}>{scans.length}</div>
                   <div style={{ fontSize: '0.72rem', color: diseasedCount > 0 ? 'var(--terracotta)' : 'var(--primary)' }}>
                     {diseasedCount > 0 ? `${diseasedCount} maladie(s) détectée(s)` : 'Aucune maladie détectée'}
                   </div>
@@ -147,7 +153,7 @@ const KnowledgeBase = () => {
                     <AlertTriangle size={18} color="var(--sand-gold)" />
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Alertes</span>
                   </div>
-                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>{alerts.length}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Newsreader', serif", color: 'var(--text-bright)' }}>{alerts.length}</div>
                   <div style={{ fontSize: '0.72rem', color: openAlerts.length > 0 ? 'var(--terracotta)' : 'var(--primary)' }}>
                     {openAlerts.length > 0 ? `${openAlerts.length} non résolue(s)` : 'Tout est sous contrôle ✓'}
                   </div>
@@ -157,7 +163,7 @@ const KnowledgeBase = () => {
                     <BarChart3 size={18} color="var(--sky-blue)" />
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Taux Santé</span>
                   </div>
-                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Playfair Display', serif", color: 'var(--text-bright)' }}>
+                  <div style={{ fontSize: '2rem', fontWeight: '800', fontFamily: "'Newsreader', serif", color: 'var(--text-bright)' }}>
                     {scans.length > 0 ? Math.round((healthyScanCount / scans.length) * 100) : 100}%
                   </div>
                   <div className="progress-bar" style={{ marginTop: '0.3rem' }}>
@@ -169,7 +175,7 @@ const KnowledgeBase = () => {
               {/* Top diseases */}
               {diseaseList.length > 0 && (
                 <div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.8rem', color: 'var(--text-bright)', fontFamily: "'Playfair Display', serif" }}>🔬 Top Diagnostics IA</h3>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.8rem', color: 'var(--text-bright)', fontFamily: "'Newsreader', serif" }}>🔬 Top Diagnostics IA</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {diseaseList.slice(0, 5).map((d, i) => (
                       <div key={i} className="glass-card" style={{ padding: '0.8rem 1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -287,7 +293,7 @@ const KnowledgeBase = () => {
                       {doc.icon}
                     </div>
                     <div>
-                      <h4 style={{ fontSize: '1rem', marginBottom: '0.2rem', color: 'var(--text-bright)', fontFamily: "'Inter'", fontWeight: '600' }}>{doc.title}</h4>
+                      <h4 style={{ fontSize: '1rem', marginBottom: '0.2rem', color: 'var(--text-bright)', fontFamily: "'Manrope'", fontWeight: '600' }}>{doc.title}</h4>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
                         <span style={{ padding: '0.1rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(139,195,74,0.08)', fontSize: '0.65rem', marginRight: '0.5rem' }}>{doc.type}</span>
                         {doc.size} • Ajouté le {doc.date}
@@ -302,6 +308,7 @@ const KnowledgeBase = () => {
             </div>
           )}
         </>
+        </ScrollReveal>
       )}
     </section>
   );

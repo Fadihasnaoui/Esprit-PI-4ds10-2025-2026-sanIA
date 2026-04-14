@@ -1,0 +1,6 @@
+﻿Polygons total: 17
+ID:69c415b0646c65e4239fd1d5 | Area:8.9329 | Name:Field_200e9ef9-c937-4595-bfe7-d45529c72953_20260325 | Images:394
+ID:69c4162c63eb0ce4c562a9d6 | Area:18.5078 | Name:Field_be300a16-7bcd-4fed-8b00-af4b9b2d09d8_20260325 | Images:395
+ID:69c82d3d63eb0c053d62aa2c | Area:11.8363 | Name:Field_aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb | Images:170
+ID:69c82d8163eb0c13b962aa2d | Area:175.9162 | Name:Field_56e018d3-e3d3-4240-8909-d93ff3b8c8bd | Images:0
+ID:69c8313963eb0cc43662aa2e | Area:129.7318 | Name:Field_bb8e9786-2bba-4b44-ab30-96690f6b8416 | Images:103

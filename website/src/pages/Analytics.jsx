@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { Calendar, Download, TrendingUp, Droplets, Thermometer, Activity, ChevronDown, RefreshCw, Leaf } from 'lucide-react';
 import { fieldService, sensorService, ndviService, alertService, diseaseService } from '../services/api';
+import ScrollReveal from '../components/ScrollReveal';
 
 const cropEmojis = { Tomato: '🍅', Grape: '🍇', Apple: '🍎', Corn: '🌽', Olive: '🫒', default: '🌱' };
 
@@ -23,22 +24,23 @@ const CustomTooltip = ({ active, payload, label }) => {
 /* ── Summary Card ── */
 const SummaryCard = ({ icon: Icon, label, value, unit, color, subtext }) => (
   <div style={{
-    background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-md)', padding: '1rem 1.2rem',
-    border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '160px',
+    background: 'rgba(255,255,255,0.08)', borderRadius: 'var(--radius-md)', padding: '1rem 1.2rem',
+    border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '160px',
+    backdropFilter: 'blur(10px)',
   }}>
     <div style={{
       padding: '0.6rem', borderRadius: '12px',
-      background: `linear-gradient(135deg, ${color}18, ${color}08)`, color,
-      border: `1px solid ${color}25`, display: 'flex',
+      background: `linear-gradient(135deg, ${color}25, ${color}10)`, color,
+      border: `1px solid ${color}40`, display: 'flex',
     }}>
       <Icon size={20} />
     </div>
     <div>
-      <div style={{ fontSize: '0.6rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>{label}</div>
-      <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-bright)', fontFamily: "'Playfair Display', serif" }}>
-        {value}<span style={{ fontSize: '0.7rem', marginLeft: '3px', color: 'var(--text-dim)', fontFamily: "'Inter'", fontWeight: '400' }}>{unit}</span>
+      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: '800', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{label}</div>
+      <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#FFFFFF', fontFamily: "'Newsreader', serif", textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
+        {value}<span style={{ fontSize: '0.9rem', marginLeft: '4px', color: 'rgba(255,255,255,0.8)', fontFamily: "'Manrope'", fontWeight: '600' }}>{unit}</span>
       </div>
-      {subtext && <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '0.1rem' }}>{subtext}</div>}
+      {subtext && <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)', marginTop: '0.2rem', fontWeight: '600' }}>{subtext}</div>}
     </div>
   </div>
 );
@@ -164,13 +166,14 @@ const Analytics = () => {
   return (
     <div style={{ padding: '2rem 0' }}>
       {/* Header */}
+      <ScrollReveal>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
             <span style={{ fontSize: '1.2rem' }}>📊</span>
             <span style={{ fontSize: '0.7rem', color: 'var(--sky-blue)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '600' }}>Télémétrie capteurs</span>
           </div>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.8rem', fontWeight: '700', color: 'var(--text-bright)' }}>
+          <h2 style={{ fontFamily: "'Newsreader', serif", fontSize: '1.8rem', fontWeight: '700', color: 'var(--text-bright)' }}>
             Analytics & <span className="gradient-text">Données en Direct</span>
           </h2>
         </div>
@@ -182,7 +185,7 @@ const Analytics = () => {
             style={{
               background: 'var(--glass)', border: '1px solid var(--glass-border)',
               borderRadius: 'var(--radius-full)', padding: '0.5rem 1rem',
-              color: 'var(--text-light)', fontSize: '0.8rem', cursor: 'pointer', outline: 'none', fontFamily: "'Inter'",
+              color: 'var(--text-light)', fontSize: '0.8rem', cursor: 'pointer', outline: 'none', fontFamily: "'Manrope'",
             }}
           >
             {fields.map(f => (
@@ -206,14 +209,17 @@ const Analytics = () => {
           </button>
         </div>
       </div>
+      </ScrollReveal>
 
       {/* Summary cards */}
+      <ScrollReveal delay={0.06}>
       <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
         <SummaryCard icon={Droplets} label="Humidité Moy." value={avgHum} unit="%" color="#4EADD5" subtext={`${telemetryData.length} mesures`} />
         <SummaryCard icon={Thermometer} label="Temp. Moy." value={avgTemp} unit="°C" color="#C75B39" subtext={`Min ${minTemp}° / Max ${maxTemp}°`} />
         <SummaryCard icon={Activity} label="Alertes ouvertes" value={openAlerts} unit={`/ ${alerts.length}`} color="#e74c3c" />
         <SummaryCard icon={Leaf} label="Parcelle" value={selectedField?.name || '--'} unit="" color="#8BC34A" subtext={`${selectedField?.crop_type || ''} · ${selectedField?.area_ha || ''} ha`} />
       </div>
+      </ScrollReveal>
 
       {loadingField && (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -223,6 +229,7 @@ const Analytics = () => {
       )}
 
       {!loadingField && (
+        <ScrollReveal delay={0.1}>
         <>
           {/* Main Charts */}
           <div className="grid-cols-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))' }}>
@@ -230,7 +237,7 @@ const Analytics = () => {
             <div className="glass-card animate-slide-up delay-1" style={{ height: '380px', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Playfair Display', serif", fontWeight: '700', color: 'var(--text-bright)' }}>💧 Humidité du Sol</h3>
+                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Newsreader', serif", fontWeight: '700', color: 'var(--text-bright)' }}>💧 Humidité du Sol</h3>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Pourcentage volumique — {days} derniers jours</span>
                 </div>
                 <div className="badge badge-primary"><div className="status-dot online" style={{ width: '5px', height: '5px' }}></div> {avgHum}% moy</div>
@@ -260,7 +267,7 @@ const Analytics = () => {
             <div className="glass-card animate-slide-up delay-2" style={{ height: '380px', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Playfair Display', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🌡️ Température</h3>
+                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Newsreader', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🌡️ Température</h3>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>°C — {days} derniers jours</span>
                 </div>
                 <div className="badge badge-warm"><div className="status-dot warning" style={{ width: '5px', height: '5px' }}></div> {avgTemp}°C moy</div>
@@ -292,7 +299,7 @@ const Analytics = () => {
             {/* NDVI Chart */}
             <div className="glass-card animate-slide-up delay-3" style={{ height: '320px', display: 'flex', flexDirection: 'column' }}>
               <div style={{ marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '0.95rem', fontFamily: "'Playfair Display', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🛰️ Indice NDVI</h3>
+                <h3 style={{ fontSize: '0.95rem', fontFamily: "'Newsreader', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🛰️ Indice NDVI</h3>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Santé végétale par satellite — 12 semaines</span>
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
@@ -320,7 +327,7 @@ const Analytics = () => {
             {pieData.length > 0 && (
               <div className="glass-card animate-slide-up delay-4" style={{ height: '320px', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Playfair Display', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🔬 Distribution Maladies</h3>
+                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Newsreader', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🔬 Distribution Maladies</h3>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>{scans.length} scan(s) analysé(s)</span>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
@@ -349,7 +356,7 @@ const Analytics = () => {
             {severityData.length > 0 && (
               <div className="glass-card animate-slide-up delay-5" style={{ height: '320px', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Playfair Display', serif", fontWeight: '700', color: 'var(--text-bright)' }}>⚠️ Alertes par Sévérité</h3>
+                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Newsreader', serif", fontWeight: '700', color: 'var(--text-bright)' }}>⚠️ Alertes par Sévérité</h3>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>{alerts.length} alerte(s) total</span>
                 </div>
                 <div style={{ flex: 1, minHeight: 0 }}>
@@ -372,7 +379,7 @@ const Analytics = () => {
             <div className="glass-card animate-slide-up" style={{ height: '300px', display: 'flex', flexDirection: 'column', marginTop: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Playfair Display', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🌬️ Humidité de l'Air & Température</h3>
+                  <h3 style={{ fontSize: '0.95rem', fontFamily: "'Newsreader', serif", fontWeight: '700', color: 'var(--text-bright)' }}>🌬️ Humidité de l'Air & Température</h3>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>Comparaison multi-capteurs</span>
                 </div>
               </div>
@@ -392,6 +399,7 @@ const Analytics = () => {
             </div>
           )}
         </>
+        </ScrollReveal>
       )}
     </div>
   );

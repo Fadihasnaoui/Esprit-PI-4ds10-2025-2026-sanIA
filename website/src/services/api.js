@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = `http://${window.location.hostname}:8000/api/v1`;
+// Keep in sync with mobile (`mobile/src/services/api.js`) — default FastAPI port 8000.
+const API_PORT = import.meta.env.VITE_API_PORT ?? '8000';
+const API_URL = `http://${window.location.hostname}:${API_PORT}/api/v1`;
 
 const api = axios.create({
   baseURL: API_URL,
@@ -39,6 +41,8 @@ export const authService = {
 export const fieldService = {
   getFields: () => api.get('/fields/'),
   createField: (data) => api.post('/fields/', data),
+  updateField: (fieldId, data) => api.put(`/fields/${fieldId}`, data),
+  deleteField: (fieldId) => api.delete(`/fields/${fieldId}`),
   getIrrigationLogs: (fieldId) => api.get(`/fields/${fieldId}/irrigation-logs`),
 };
 
@@ -65,6 +69,13 @@ export const diseaseService = {
 export const ndviService = {
   getHistory: (fieldId, weeks = 8) => api.get(`/ndvi/${fieldId}?weeks=${weeks}`),
   getSpatialDiagnostic: (fieldId) => api.get(`/ndvi/${fieldId}/spatial-diagnostic`),
+};
+
+export const vraService = {
+  getFullAnalysis: (fieldId) => api.get(`/vra/${fieldId}/full-analysis`),
+  getVraMap:       (fieldId) => api.get(`/vra/${fieldId}/map`),
+  getSoilHealth:   (fieldId) => api.get(`/vra/${fieldId}/soil-health`),
+  getCropCalendar: (fieldId) => api.get(`/vra/${fieldId}/crop-calendar`),
 };
 
 export default api;

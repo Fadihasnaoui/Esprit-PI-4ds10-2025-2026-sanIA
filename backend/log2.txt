@@ -1,0 +1,11 @@
+============================================================
+NDVI / Agromonitoring Connection Test
+============================================================
+[OK]  API Key found: 1343d1...f099 (32 chars)
+
+[TEST] GET http://api.agromonitoring.com/agro/1.0/polygons?appid=1343d1...
+       Status: 401
+       [FAIL] 401 Unauthorized — API key is invalid or expired.
+       Get a fresh free key at: https://agromonitoring.com/dashboard/new-api-key
+
+============================================================

@@ -20,7 +20,7 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
 
 class User(UserBase):
-    id: str
+    id: UUID
     created_at: datetime
     class Config: from_attributes = True
 

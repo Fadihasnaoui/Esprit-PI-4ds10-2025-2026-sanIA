@@ -87,6 +87,9 @@ class DiseaseScan(Base):
     crop_type = Column(String)
     predicted_disease = Column(String)
     confidence = Column(Float)
+    severity_pct = Column(Float, nullable=True)
+    severity_label = Column(String, nullable=True)
+    severity_color = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     field = relationship("Field", back_populates="disease_scans")
 
