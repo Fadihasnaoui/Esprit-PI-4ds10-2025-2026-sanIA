@@ -626,7 +626,99 @@ input:focus, select:focus, textarea:focus {
   z-index: -1;
 }
 
-/* Handle Leaflet Black Map Issue */
 .leaflet-container {
   background: #111 !important;
+}
+
+/* ══════════════════════════════════════════════
+   SANIA PASSPORT — PROFESSIONAL PRINT LAYOUT
+   ══════════════════════════════════════════════ */
+@media print {
+  /* HIDE ENTIRE APP INTERFACE */
+  body > *:not(.sania-passport-print) {
+    display: none !important;
+  }
+
+  /* GLOBAL VISIBILITY CONFIG */
+  .sania-passport-print, 
+  .sania-passport-print * {
+    visibility: visible !important;
+    display: block !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* FORCE A4 PHYSICAL LAYOUT */
+  body, html {
+    background: white !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .sania-passport-print {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    background: white !important;
+    z-index: 2147483647 !important;
+  }
+
+  .print-page {
+    page-break-after: always;
+    page-break-inside: avoid !important; /* CRITICAL: Prevent inner cuts */
+    break-inside: avoid !important;
+    min-height: 297mm;
+    width: 210mm;
+    padding: 60px 80px !important; /* Optimized margins */
+    background: white !important;
+    box-sizing: border-box;
+    display: flex !important;
+    flex-direction: column;
+    border: none !important;
+  }
+
+  /* PREVENT SPECIFIC CONTAINERS FROM BEING CUT IN HALF */
+  .print-page div, 
+  .print-page table, 
+  .print-page tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
+
+  .print-page:last-child {
+    page-break-after: auto;
+  }
+
+  /* ULTRA-PREMIUM COLOR RENDERING (BLACK ON WHITE FOR TEXT) */
+  h1, h2, h3, h4, strong, td, th {
+    color: #000 !important;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  span, p, div {
+    color: #111 !important;
+  }
+
+  /* BRAND PRESETS RE-ENFORCED */
+  .sania-accent-green { color: #8BC34A !important; border-color: #8BC34A !important; }
+  .sania-accent-orange { color: #C75B39 !important; border-color: #C75B39 !important; }
+
+  /* FIX FOR DARK BOXES (VERDICT SVI) */
+  .print-dark-box, .print-dark-box * {
+    color: #ffffff !important;
+  }
+}
+
+/* Base style: MUST be hidden during regular browsing */
+.sania-passport-print {
+  display: none;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

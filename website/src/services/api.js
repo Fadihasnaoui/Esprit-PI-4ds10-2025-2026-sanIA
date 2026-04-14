@@ -49,13 +49,26 @@ export const livestockService = {
   updateAnimal: (id, data) => api.put(`/animals/${id}`, data),
   deleteAnimal: (id) => api.delete(`/animals/${id}`),
   getTelemetryHistory: (id, limit = 50) => api.get(`/animals/${id}/telemetry?limit=${limit}`),
+  getTelemetryForecast: (id) => api.get(`/animals/${id}/telemetry/forecast`),
   addVaccination: (animalId, data) => api.post(`/animals/${animalId}/vaccinations`, data),
+  getVaccinations: (animalId) => api.get(`/animals/${animalId}/vaccinations`),
   deleteVaccination: (logId) => api.delete(`/animals/vaccinations/${logId}`),
   addTreatment: (animalId, data) => api.post(`/animals/${animalId}/treatments`, data),
+  getTreatments: (animalId) => api.get(`/animals/${animalId}/treatments`),
   deleteTreatment: (logId) => api.delete(`/animals/treatments/${logId}`),
+  getConsumption: (animalId, limit = 30) => api.get(`/animals/${animalId}/consumption?limit=${limit}`),
   getZones: () => api.get('/animals/zones'),
   createZone: (data) => api.post('/animals/zones', data),
   deleteZone: (id) => api.delete(`/animals/zones/${id}`),
+  getMyFarm: () => api.get('/animals/farm/me'),
+  performAutoScan: (lat, lon) => api.post(`/livestock_scans/orbital-scan?lat=${lat}&lon=${lon}`),
+  performHealthScan: (file, species = 'Bovin', animalId = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    let url = `/health-scan/analyze?species=${encodeURIComponent(species)}`;
+    if (animalId) url += `&animal_id=${animalId}`;
+    return api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  }
 };
 
 export const diseaseService = {

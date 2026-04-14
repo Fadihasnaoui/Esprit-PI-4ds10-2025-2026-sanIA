@@ -42,7 +42,10 @@ class Settings(BaseSettings):
             
         # 3. Last fallback: SQLite
         if not url:
-            return "sqlite:///./sania_local.db"
+            # Absolute path to the database file in the backend directory
+            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            db_path = os.path.join(backend_dir, "sania_local.db")
+            return f"sqlite:///{db_path}"
             
         # 4. Standardize for SQLAlchemy
         if url.startswith("postgres://"):

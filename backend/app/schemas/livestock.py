@@ -5,8 +5,8 @@ from datetime import datetime
 
 class VaccinationLogBase(BaseModel):
     vaccine_name: str
-    dose: str
-    vet_name: str
+    dose: Optional[str] = "Standard"
+    vet_name: Optional[str] = "Vet Sania"
     date: datetime
     next_due_date: datetime
 
@@ -20,8 +20,8 @@ class VaccinationLogInDB(VaccinationLogBase):
 
 class TreatmentLogBase(BaseModel):
     diagnosis: str
-    medicine: str
-    dosage: str
+    medicine: Optional[str] = "Traitement général"
+    dosage: Optional[str] = "N/A"
     vet_note: Optional[str] = None
     date: datetime
 
@@ -29,6 +29,20 @@ class TreatmentLogCreate(TreatmentLogBase):
     pass
 
 class TreatmentLogInDB(TreatmentLogBase):
+    id: UUID
+    animal_id: UUID
+    class Config: from_attributes = True
+
+class ConsumptionLogBase(BaseModel):
+    water_liters: float
+    food_kg: float
+    ndvi_value: Optional[float] = None
+    date: datetime
+
+class ConsumptionLogCreate(ConsumptionLogBase):
+    pass
+
+class ConsumptionLogInDB(ConsumptionLogBase):
     id: UUID
     animal_id: UUID
     class Config: from_attributes = True
@@ -74,8 +88,6 @@ class AnimalSummary(AnimalBase):
     id: UUID
     farm_id: UUID
     created_at: datetime
-    vaccinations: List[VaccinationLogInDB] = []
-    treatments: List[TreatmentLogInDB] = []
     class Config: from_attributes = True
 
 class AnimalInDB(AnimalBase):
@@ -84,6 +96,7 @@ class AnimalInDB(AnimalBase):
     created_at: datetime
     vaccinations: List[VaccinationLogInDB] = []
     treatments: List[TreatmentLogInDB] = []
+    consumption: List[ConsumptionLogInDB] = []
     telemetry: List[AnimalTelemetryInDB] = []
     class Config: from_attributes = True
 

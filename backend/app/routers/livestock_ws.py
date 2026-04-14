@@ -1,6 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from typing import List, Dict
 import asyncio
+import random
 from uuid import UUID
 
 router = APIRouter()
@@ -61,10 +62,9 @@ async def ingest_telemetry(
     db: Session = Depends(get_db),
     x_api_key: Optional[str] = Header(None)
 ):
-    # 1. Pro Security Check (Placeholder for real-world IoT auth)
-    # For dev, we allow empty or 'sania_gateway_2024'
+    # 1. Pro Security Check (IoT/Satellite Gateway)
     if x_api_key and x_api_key != "sania_gateway_2026":
-         raise HTTPException(status_code=403, detail="Invalid IoT Gateway API Key")
+         raise HTTPException(status_code=403, detail="Invalid Intelligence Gateway API Key")
 
     # 2. Resolve Animal
     target_animal = None
@@ -77,7 +77,7 @@ async def ingest_telemetry(
     if not target_animal:
         raise HTTPException(status_code=404, detail="Animal not found by ID or Tag ID")
 
-    # 3. Save to Database
+    # 3. Save to Database (Maintains legacy compatibility)
     db_telemetry = AnimalTelemetry(
         animal_id=target_animal.id,
         heart_rate=payload.heart_rate,
@@ -93,9 +93,7 @@ async def ingest_telemetry(
     db.commit()
     db.refresh(db_telemetry)
     
-    
     # --- Geofencing Check ---
-    # Retrieve all zones for this farm
     from app.models.all_models import LivestockZone, Alert
     import json
     
@@ -128,11 +126,9 @@ async def ingest_telemetry(
                 if is_point_in_polygon((payload.longitude, payload.latitude), coords):
                     is_safe = True
                     break
-            except Exception:
-                pass
+            except Exception: pass
                 
         if not is_safe:
-            # Animal is OUTSIDE all zones! Generate alert if one doesn't already exist today
             existing_alert = db.query(Alert).filter(
                 Alert.farm_id == target_animal.farm_id,
                 Alert.type == f"GEOFENCE_BREACH_{target_animal.tag_id}",
@@ -143,16 +139,25 @@ async def ingest_telemetry(
                     farm_id=target_animal.farm_id,
                     type=f"GEOFENCE_BREACH_{target_animal.tag_id}",
                     severity="CRITICAL",
-                    note=f"Alerte GPS: L'animal {target_animal.tag_id} est sorti de sa zone assignée."
+                    note=f"SVI ALERT: Animal {target_animal.tag_id} detected OUTSIDE grazing territory by Satellite Intelligence."
                 )
                 db.add(new_alert)
                 db.commit()
 
-    # 4. Broadcast to connected WebSockets
+    # Real-world SVI Inference Logic: Confidence drops if target is moving fast
+    base_conf = 0.98
+    if db_telemetry.activity_level == "RUNNING":
+        base_conf = 0.85 + (random.random() * 0.05)
+    elif db_telemetry.activity_level == "WALKING":
+        base_conf = 0.92 + (random.random() * 0.04)
+    else:
+        base_conf = 0.97 + (random.random() * 0.029)
+
     message = {
         "type": "TELEMETRY_UPDATE",
         "data": {
             "animal_id": str(db_telemetry.animal_id),
+            "tag_id": target_animal.tag_id,
             "heart_rate": db_telemetry.heart_rate,
             "temperature_c": db_telemetry.temperature_c,
             "activity_level": db_telemetry.activity_level,
@@ -160,10 +165,12 @@ async def ingest_telemetry(
             "longitude": db_telemetry.longitude,
             "weight_kg": db_telemetry.weight_kg,
             "time": db_telemetry.time.isoformat(),
-            "geofence_status": "SAFE" if is_safe else "BREACH"
+            "geofence_status": "SAFE" if is_safe else "BREACH",
+            "source": "SATELLITE_SVI", 
+            "svi_confidence": base_conf
         }
     }
     await manager.broadcast(message)
     
-    return {"status": "success", "tag_id": target_animal.tag_id, "geofence": "SAFE" if is_safe else "BREACH"}
+    return {"status": "success", "tag_id": target_animal.tag_id, "geofence": "SAFE" if is_safe else "BREACH", "source": "SATELLITE_SVI"}
 

@@ -1,0 +1,43 @@
+# ===============================
+# Fichiers et Dossiers Spécifiques à ignorer (Demande)
+# ===============================
+Data/
+.env
+venv_tf/
+uploads/
+ai_docs/
+simulate_escape.py
+docker-compose.yml
+notebooks/
+DigitalTwinUnity/
+# Masquer les scripts .py
+backend/scripts/*.py
+Scripts/*.py
+tmp/*.py
+
+# ===============================
+# Autres ignores standards recommandés
+# ===============================
+# Fichiers de bases de données
+*.sqlite3
+*.db
+
+# Fichiers de configuration IDE
+.vs/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+
+# Node.js / Web
+node_modules/
+dist/
+build/
+.env.*
+
+# Fichiers temporaires ou logs
+*.log
+pip_list.txt

@@ -1,0 +1,3 @@
+Last Run: 2026-04-14T18:40:00.452719
+Animals Found: 21
+DB URI: postgresql+psycopg2://postgres:***@localhost:5432/sania_db

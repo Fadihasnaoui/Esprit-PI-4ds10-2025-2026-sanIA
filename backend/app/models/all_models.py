@@ -122,6 +122,7 @@ class Animal(Base):
     farm = relationship("Farm", back_populates="animals")
     vaccinations = relationship("VaccinationLog", back_populates="animal", cascade="all, delete-orphan")
     treatments = relationship("TreatmentLog", back_populates="animal", cascade="all, delete-orphan")
+    consumption = relationship("ConsumptionLog", back_populates="animal", cascade="all, delete-orphan")
     telemetry = relationship("AnimalTelemetry", back_populates="animal", cascade="all, delete-orphan")
 
 class AnimalTelemetry(Base):
@@ -135,6 +136,16 @@ class AnimalTelemetry(Base):
     longitude = Column(Float)
     weight_kg = Column(Float, nullable=True)
     animal = relationship("Animal", back_populates="telemetry")
+
+class ConsumptionLog(Base):
+    __tablename__ = "consumption_logs"
+    id = Column(ID_TYPE, primary_key=True, default=generate_uuid)
+    animal_id = Column(ID_TYPE, ForeignKey("animals.id"))
+    water_liters = Column(Float)
+    food_kg = Column(Float)
+    ndvi_value = Column(Float, nullable=True) # The "AI" link to satellite data
+    date = Column(DateTime, server_default=func.now())
+    animal = relationship("Animal", back_populates="consumption")
 
 class VaccinationLog(Base):
     __tablename__ = "vaccination_logs"
