@@ -16,6 +16,8 @@ from sqlalchemy import desc
 import os, re, random, uuid
 from datetime import datetime
 from ..models.all_models import Farm, Cooperative, Animal, VaccinationLog, TreatmentLog, User, UserRole, AnimalTelemetry, LivestockZone, ConsumptionLog  # type: ignore
+from ..services.weather_intelligence import weather_service
+from ..services.satellite_intelligence import satellite_service
 
 def sync_to_sql_file():
     """Refreshes the livestock_seed.sql with current DB state for persistence."""
@@ -318,4 +320,41 @@ def get_treatments(animal_id: UUID, db: Session = Depends(get_db)):
 def get_consumption(animal_id: UUID, limit: int = 30, db: Session = Depends(get_db)):
     return db.query(ConsumptionLog).filter(ConsumptionLog.animal_id == str(animal_id))\
              .order_by(desc(ConsumptionLog.date)).limit(limit).all()
+
+@router.get("/{animal_id}/environment")
+async def get_animal_environment(animal_id: UUID, db: Session = Depends(get_db)):
+    """Fetches real-time weather and NDVI for an animal's current location."""
+    animal = db.query(Animal).filter(Animal.id == str(animal_id)).first()
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found")
+        
+    # Get last telemetry for location
+    latest_telemetry = db.query(AnimalTelemetry).filter(AnimalTelemetry.animal_id == str(animal_id))\
+                         .order_by(desc(AnimalTelemetry.time)).first()
+                         
+    lat = latest_telemetry.latitude if latest_telemetry and latest_telemetry.latitude else animal.latitude
+    lon = latest_telemetry.longitude if latest_telemetry and latest_telemetry.longitude else animal.longitude
+    
+    if lat is None or lon is None:
+        # Fallback to farm location if animal has no telemetry/fixed coords
+        farm = db.query(Farm).filter(Farm.id == animal.farm_id).first()
+        if farm and farm.location:
+            try:
+                from ..core.location_utils import parse_coordinates
+                coords = parse_coordinates(farm.location)
+                if coords: lat, lon = coords
+            except: pass
+            
+    # Absolute fallback (Ariana-Tunis region)
+    if lat is None: lat, lon = 36.8665, 10.1647
+            
+    weather = await weather_service.get_current_weather(lat, lon)
+    ndvi = satellite_service.get_ndvi_for_location(lat, lon)
+    
+    return {
+        "temperature": weather.get("temperature", 24.0),
+        "ndvi": ndvi.get("ndvi_value", 0.5),
+        "ndvi_status": ndvi.get("status", "Healthy"),
+        "timestamp": datetime.now().isoformat()
+    }
 

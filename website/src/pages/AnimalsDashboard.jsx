@@ -8,7 +8,7 @@ import {
   FileText, Download
 } from 'lucide-react';
 import axios from 'axios';
-import { livestockService } from '../services/api';
+import { livestockService, alertService } from '../services/api';
 import LivestockMap from '../components/LivestockMap';
 import VitalSignsChart from '../components/VitalSignsChart';
 import OrbitalScanModal from '../components/OrbitalScanModal';
@@ -58,7 +58,7 @@ const ForageStockView = ({ animals }) => {
   
   return (
     <div className="animate-fade-in glass-card" style={{ padding: '2rem', borderTop: '4px solid #fde047' }}>
-       <h3 style={{ fontSize: '1.5rem', color: '#fde047', fontFamily: "'Playfair Display', serif", marginBottom: '1.5rem' }}>Prévision Intelligence SVI : Stocks (3 Jours)</h3>
+       <h3 style={{ fontSize: '1.5rem', color: '#fde047', fontFamily: "'Playfair Display', serif", marginBottom: '1.5rem' }}>Prévision Intelligente SVI : Stocks (3 Jours)</h3>
        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
           {Object.entries(speciesCount).map(([species, count]) => {
               const dailyFood = (needsPerDay[species] || 10) * count;
@@ -110,17 +110,23 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments }) => {
   const [liveNdvi, setLiveNdvi] = useState(0.50);
 
   useEffect(() => {
-      const interval = setInterval(() => {
-          setLiveTemp(prev => parseFloat((prev + (Math.random() * 0.4 - 0.2)).toFixed(1)));
-          setLiveNdvi(prev => {
-              let n = prev + (Math.random() * 0.04 - 0.02);
-              if (n > 0.95) n = 0.95;
-              if (n < 0.2) n = 0.2;
-              return n;
-          });
-      }, 2000);
-      return () => clearInterval(interval);
-  }, []);
+    const fetchEnv = () => {
+      livestockService.getAnimalEnvironment(animal.id)
+        .then(res => {
+          setLiveTemp(res.data.temperature);
+          setLiveNdvi(res.data.ndvi);
+        })
+        .catch(err => {
+          console.error("Sania-Copernicus Sync Failed:", err);
+          // Graceful fallback to random walk if API is unavailable
+          setLiveTemp(prev => parseFloat((prev + (Math.random() * 0.2 - 0.1)).toFixed(1)));
+        });
+    };
+    
+    fetchEnv();
+    const interval = setInterval(fetchEnv, 15000); // 15s High-Frequency Sync
+    return () => clearInterval(interval);
+  }, [animal.id]);
 
   const latestLog = consumption?.[0];
   
@@ -305,12 +311,13 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments }) => {
              <button 
                 onClick={() => {
                    const v_name = prompt("Nom du Vaccin :");
-                   const v_date = prompt("Date (YYYY-MM-DD) :", new Date().toISOString().split('T')[0]);
-                   if (v_name && v_date) {
+                   const v_date = prompt("Date Vaccination (YYYY-MM-DD) :", new Date().toISOString().split('T')[0]);
+                   const v_next = prompt("PROCHAIN RAPPEL SVI (YYYY-MM-DD) :", new Date(new Date().getTime() + 90 * 86400000).toISOString().split('T')[0]);
+                   if (v_name && v_date && v_next) {
                       livestockService.addVaccination(animal.id, {
                          vaccine_name: v_name,
                          date: v_date,
-                         next_due_date: v_date,
+                         next_due_date: v_next,
                          dose: "Standard",
                          vet_name: "Vet Sania"
                       }).then(() => window.location.reload())
@@ -389,6 +396,45 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
   const health = getHealthInfo(telemetry, animal.status);
   const statusColor = health.color;
   const isSVI = telemetry?.source === 'SATELLITE_SVI';
+  const estimatedPrice = useMemo(() => {
+    const basePrices = { 'bovin': 4800, 'ovin': 1450, 'caprin': 980, 'cheval': 8500, 'volaille': 35 };
+    let price = basePrices[animal.species?.toLowerCase()] || 1000;
+    
+    // Factor 1: Age Impact
+    if (animal.birth_date) {
+      const birth = new Date(animal.birth_date);
+      const ageYears = (new Date() - birth) / (1000 * 60 * 60 * 24 * 365.25);
+      if (ageYears < 0.5) price *= 0.65; // Weanling
+      else if (ageYears < 1.5) price *= 0.90; // Yearling
+      else if (ageYears > 8) price *= 0.70; // Old
+    }
+    
+    // Factor 2: Health Status (AI Analysis) - Naïf / Maigre / Critique
+    if (health.label === 'Critique') {
+      price *= 0.40; // Major health crisis
+    } else if (['Déshydraté', 'Sous-alimenté', 'Stressé', 'Malade'].includes(animal.status)) {
+      price *= 0.75; // "Naïf" or poor condition impact
+    }
+    
+    // Factor 3: Weight Dynamics (Species-specific thresholds)
+    const currentWeight = telemetry?.weight_kg || animal.weight_kg;
+    if (currentWeight) {
+      const species = animal.species?.toLowerCase();
+      if (species === 'bovin' && currentWeight < 350) price *= 0.85;
+      else if (species === 'ovin' && currentWeight < 45) price *= 0.82;
+      else if (species === 'caprin' && currentWeight < 30) price *= 0.80;
+    }
+    
+    // Factor 4: Market Variance (Safety check for ID)
+    const animalId = animal.id || "";
+    const variance = animalId ? (parseInt(animalId.substring(0, 2), 16) % 10) - 5 : 0; 
+    price *= (1 + variance / 100);
+
+    // Final Rounding for "Chiffres Ronds" (Round Numbers)
+    if (price > 1000) return Math.round(price / 50) * 50;
+    if (price > 100) return Math.round(price / 10) * 10;
+    return Math.round(price / 5) * 5;
+  }, [animal, health.label, telemetry?.weight_kg, animal.status]);
 
   return (
     <div
@@ -435,17 +481,40 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
               {isSVI ? (
                 <>
                   <span style={{ color: '#4ade80', fontWeight: 'bold' }}>🛰️ SVI ORBITAL SCAN</span>
-                  <span style={{ padding: '2px 6px', background: 'rgba(74, 222, 128, 0.2)', color: '#4ade80', borderRadius: '4px', fontSize: '0.55rem', fontWeight: '900', border: '1px solid rgba(74, 222, 128, 0.3)' }}>
-                    DEPLOYMENT READY
-                  </span>
                 </>
               ) : `${animal.breed} • ${calculateAge(animal.birth_date)}`}
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button onClick={() => onEdit(animal)} className="btn-icon" style={{ padding: '0.4rem', color: 'var(--text-dim)' }}>
-            <Edit size={12} />
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <div style={{ 
+            background: 'linear-gradient(135deg, rgba(253, 224, 71, 0.1) 0%, rgba(234, 179, 8, 0.05) 100%)',
+            padding: '0.4rem 0.8rem',
+            borderRadius: '10px',
+            border: '1px solid rgba(253, 224, 71, 0.3)',
+            textAlign: 'right',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+          }}>
+            <div style={{ fontSize: '0.5rem', color: '#fde047', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Prix Estimé</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: '900', color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>{estimatedPrice.toLocaleString()} <span style={{ fontSize: '0.6rem', color: '#fde047' }}>TND</span></div>
+          </div>
+          <button 
+            onClick={() => onEdit(animal)} 
+            style={{ 
+              padding: '0.5rem', 
+              background: 'rgba(74, 222, 128, 0.1)', 
+              color: 'var(--primary)',
+              border: '1px solid rgba(74, 222, 128, 0.2)',
+              borderRadius: '10px',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+            className="hover-glow"
+          >
+            <Edit size={14} />
           </button>
         </div>
       </div>
@@ -510,34 +579,27 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
           <div style={{ fontSize: '0.7rem', fontWeight: '800', color: health.color }}>{health.label}</div>
         </div>
         <div style={{ background: 'rgba(0,0,0,0.1)', padding: '0.4rem', borderRadius: '6px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)' }}>Source</div>
-          <div style={{ fontSize: '0.6rem', fontWeight: '700', color: isSVI ? '#4ade80' : 'var(--primary)' }}>{isSVI ? 'SAT' : 'BLE'}</div>
+          <div style={{ fontSize: '0.5rem', color: 'var(--text-muted)' }}>Sexe</div>
+          <div style={{ fontSize: '0.6rem', fontWeight: '700', color: 'var(--text-bright)' }}>{animal.gender || '—'}</div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: expanded ? '1fr 1fr' : '1fr 1fr', gap: '0.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: expanded ? '1fr' : '1fr', gap: '0.5rem' }}>
         <button
           onClick={() => setExpanded(!expanded)}
           className="btn btn-outline"
-          style={{ width: '100%', fontSize: '0.7rem', justifyContent: 'center', borderRadius: '10px', padding: '0.4rem' }}
+          style={{ width: '100%', fontSize: '0.75rem', justifyContent: 'center', borderRadius: '12px', padding: '0.6rem', background: 'rgba(255,255,255,0.02)' }}
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} 
-          {expanded ? 'Fermer Dossier' : 'Dossier Santé'}
-        </button>
-        <button
-          onClick={() => onHealthScan && onHealthScan(animal)}
-          className="btn"
-          style={{ width: '100%', fontSize: '0.65rem', justifyContent: 'center', borderRadius: '10px', padding: '0.4rem', background: 'linear-gradient(135deg, #a78bfa, #7c3aed)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 800, letterSpacing: '0.5px', gap: '5px', display: 'flex', alignItems: 'center' }}
-        >
-          <HeartPulse size={13} /> Diagnostic IA
+          {expanded ? 'Fermer le Dossier' : 'Consulter Dossier Santé'}
         </button>
         {expanded && (
           <button
             onClick={() => onPrint(animal, telemetry, healthData)}
             className="btn btn-primary"
-            style={{ width: '100%', fontSize: '0.7rem', background: 'var(--gradient-warm)', border: 'none', borderRadius: '10px', padding: '0.4rem' }}
+            style={{ width: '100%', fontSize: '0.75rem', background: 'var(--gradient-warm)', border: 'none', borderRadius: '12px', padding: '0.6rem', marginTop: '0.5rem' }}
           >
-            <FileText size={14} /> Imprimer Passeport
+            <FileText size={14} /> Imprimer Passeport Officiel
           </button>
         )}
       </div>
@@ -890,67 +952,74 @@ const AnimalsDashboard = ({ user }) => {
           <p style={{ color: 'var(--text-dim)', fontSize: '0.95rem' }}>Surveillance biométrique et GPS en temps réel</p>
         </div>
         
-        <div style={{ display: 'flex', gap: '0.8rem' }}>
-          <button 
-            className="btn" 
-            style={{ 
-              borderRadius: '12px', 
-              background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)', 
-              color: '#000', 
-              fontWeight: '900',
-              border: 'none',
-              padding: '0.6rem 1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 15px rgba(74, 222, 128, 0.4)',
-              cursor: 'pointer'
-            }}
-            onClick={() => setIsScanModalOpen(true)}
-          >
-            <Wifi size={18} /> SCAN ORBITAL SVI
-          </button>
-          <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '12px', padding: '0.3rem', border: '1px solid var(--glass-border)' }}>
+        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          {/* Quick Actions Group */}
+          <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '14px', padding: '0.35rem', border: '1px solid var(--glass-border)', gap: '0.4rem' }}>
+            <button 
+              className="btn" 
+              style={{ 
+                borderRadius: '10px', 
+                background: 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)', 
+                color: '#000', 
+                fontWeight: '900',
+                border: 'none',
+                padding: '0.6rem 1.2rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 15px rgba(74, 222, 128, 0.2)',
+                cursor: 'pointer',
+                fontSize: '0.8rem'
+              }}
+              onClick={() => setIsScanModalOpen(true)}
+            >
+              <Wifi size={16} /> SCAN ORBITAL
+            </button>
+
+
+
+            <button 
+              className="btn btn-warm" 
+              style={{ borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.8rem', fontWeight: '900' }}
+              onClick={() => {
+                setEditingAnimal(null);
+                setFormData({ 
+                  tag_id: '', species: 'Bovin', breed: '', gender: 'Femelle', 
+                  birth_date: new Date().toISOString().split('T')[0],
+                  entry_date: new Date().toISOString().split('T')[0],
+                  status: 'Sain', weight_kg: '', latitude: '36.60', longitude: '10.49'
+                });
+                setIsModalOpen(true);
+              }}
+            >
+              <Plus size={16} /> NOUVEL ANIMAL
+            </button>
+          </div>
+
+          {/* View Modes Group */}
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', borderRadius: '14px', padding: '0.35rem', border: '1px solid var(--glass-border)' }}>
             <button 
               className={`btn ${viewMode === 'grid' ? 'btn-primary' : ''}`} 
-              style={{ borderRadius: '10px', padding: '0.4rem 1.2rem', fontSize: '0.85rem' }}
+              style={{ borderRadius: '10px', padding: '0.5rem 1rem', fontSize: '0.75rem', background: viewMode === 'grid' ? 'var(--primary)' : 'transparent', border: 'none' }}
               onClick={() => setViewMode('grid')}
             >
-              <LayoutGrid size={16} /> Grille
+              <LayoutGrid size={14} />
             </button>
             <button 
               className={`btn ${viewMode === 'live' ? 'btn-primary' : ''}`}
-              style={{ borderRadius: '10px', padding: '0.4rem 1.2rem', fontSize: '0.85rem' }}
+              style={{ borderRadius: '10px', padding: '0.5rem 1rem', fontSize: '0.75rem', background: viewMode === 'live' ? 'var(--primary)' : 'transparent', border: 'none' }}
               onClick={() => setViewMode('live')}
             >
-              <MapIcon size={16} /> Live Tracking
+              <MapIcon size={14} />
             </button>
             <button 
               className={`btn ${viewMode === 'stock' ? 'btn-primary' : ''}`}
-              style={{ borderRadius: '10px', padding: '0.4rem 1.2rem', fontSize: '0.85rem' }}
+              style={{ borderRadius: '10px', padding: '0.5rem 1rem', fontSize: '0.75rem', background: viewMode === 'stock' ? 'var(--primary)' : 'transparent', border: 'none' }}
               onClick={() => setViewMode('stock')}
             >
-              <TrendingUp size={16} /> Fourrage (Stock)
+              <TrendingUp size={14} />
             </button>
           </div>
-          
-
-          <button 
-            className="btn btn-warm" 
-            style={{ borderRadius: '12px' }}
-            onClick={() => {
-              setEditingAnimal(null);
-              setFormData({ 
-                tag_id: '', species: 'Bovin', breed: '', gender: 'Femelle', 
-                birth_date: new Date().toISOString().split('T')[0],
-                entry_date: new Date().toISOString().split('T')[0],
-                status: 'Sain', weight_kg: '', latitude: '36.60', longitude: '10.49'
-              });
-              setIsModalOpen(true);
-            }}
-          >
-            <Plus size={18} /> Nouvel Animal
-          </button>
         </div>
       </div>
 
@@ -1160,11 +1229,26 @@ const AnimalsDashboard = ({ user }) => {
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="glass-card animate-scale-in" style={{ width: '450px', padding: '2rem', border: '1px solid var(--glass-border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.2rem', fontFamily: "'Playfair Display', serif" }}>
-                {editingAnimal ? "Modifier l'animal" : "Ajouter un animal"}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--text-dim)' }}><X size={20} /></button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: 'var(--primary)', padding: '10px', borderRadius: '12px', color: '#000' }}>
+                   {editingAnimal ? <Edit size={22} /> : <Plus size={22} />}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.4rem', fontFamily: "'Playfair Display', serif", margin: 0, color: '#fff' }}>
+                    {editingAnimal ? "Modifier le Dossier" : "Nouvel Animal SVI"}
+                  </h3>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                    Certification Sania Cloud
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '50%', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={20} />
+              </button>
             </div>
             
             <form onSubmit={(e) => {
@@ -1230,11 +1314,11 @@ const AnimalsDashboard = ({ user }) => {
                     onChange={e => setFormData({...formData, species: e.target.value})}
                     style={modalInputStyle}
                   >
-                    <option value="Bovin">Bovin</option>
-                    <option value="Ovin">Ovin</option>
-                    <option value="Caprin">Caprin</option>
-                    <option value="Cheval">Cheval</option>
-                    <option value="Volaille">Volaille</option>
+                    <option value="Bovin" style={{ color: '#000' }}>Bovin</option>
+                    <option value="Ovin" style={{ color: '#000' }}>Ovin</option>
+                    <option value="Caprin" style={{ color: '#000' }}>Caprin</option>
+                    <option value="Cheval" style={{ color: '#000' }}>Cheval</option>
+                    <option value="Volaille" style={{ color: '#000' }}>Volaille</option>
                   </select>
                 </div>
               </div>
@@ -1255,8 +1339,8 @@ const AnimalsDashboard = ({ user }) => {
                     onChange={e => setFormData({...formData, gender: e.target.value})}
                     style={modalInputStyle}
                   >
-                    <option value="Mâle">Mâle</option>
-                    <option value="Femelle">Femelle</option>
+                    <option value="Mâle" style={{ color: '#000' }}>Mâle</option>
+                    <option value="Femelle" style={{ color: '#000' }}>Femelle</option>
                   </select>
                 </div>
               </div>
@@ -1288,9 +1372,9 @@ const AnimalsDashboard = ({ user }) => {
                     onChange={e => setFormData({...formData, status: e.target.value})}
                     style={modalInputStyle}
                   >
-                    <option value="Sain">Sain</option>
-                    <option value="Critique">Critique</option>
-                    <option value="Quarantaine">Quarantaine</option>
+                    <option value="Sain" style={{ color: '#000' }}>Sain</option>
+                    <option value="Critique" style={{ color: '#000' }}>Critique</option>
+                    <option value="Quarantaine" style={{ color: '#000' }}>Quarantaine</option>
                   </select>
                 </div>
                 <div>
@@ -1537,12 +1621,14 @@ const AnimalsDashboard = ({ user }) => {
 // Common style for modal inputs to avoid repetition
 const modalInputStyle = {
   width: '100%', 
-  padding: '0.9rem', 
-  background: 'rgba(255,255,255,0.05)', 
-  border: '1px solid var(--glass-border)', 
-  borderRadius: '12px', 
+  padding: '0.9rem 1.2rem', 
+  background: 'rgba(255,255,255,0.03)', 
+  border: '1px solid rgba(255,255,255,0.1)', 
+  borderRadius: '14px', 
   color: '#fff',
-  fontSize: '0.85rem'
+  fontSize: '0.9rem',
+  outline: 'none',
+  transition: 'all 0.3s ease'
 };
 
 export default AnimalsDashboard;

@@ -248,7 +248,7 @@ const LivestockMap = ({
                             <Marker position={[lat, lng]} icon={customIcon} eventHandlers={{ click: () => onSelectAnimal && onSelectAnimal(animal.id) }}>
                                 <Tooltip sticky direction="top">
                                     <div style={{ background: '#000', color: '#fff', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>
-                                        <strong>{animal.tag_id}</strong><br/>{isSVI ? 'SVI Satellite Mode' : 'IoT Sensor Mode'}
+                                        <strong>{animal.tag_id}</strong>
                                     </div>
                                 </Tooltip>
                                 <Popup>

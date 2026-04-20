@@ -318,12 +318,12 @@ const OrbitalScanModal = ({ isOpen, onClose, user, farmLocation, manualCaptureLo
                         )}
                     </div>
 
-                    {/* Footer HUD */}
+                    {/* Bottom HUD */}
                     <div style={{ position: 'absolute', bottom: 20, left: 20, display: 'flex', gap: '30px', color: theme.dim, fontSize: '0.75rem', fontFamily: theme.fontData }}>
                         <div>PWR: 98.4%</div>
                         <div>TEMP: -12.2°C</div>
                         <div>LINK: AES-256</div>
-                        <div>MDL: EfficientNet-B0</div>
+                        <div style={{ color: theme.accent, fontWeight: 800 }}>ENGINE: ULTRA-TILED V6</div>
                     </div>
                 </div>
 
@@ -463,14 +463,53 @@ const OrbitalScanModal = ({ isOpen, onClose, user, farmLocation, manualCaptureLo
                                     </div>
                                 </div>
 
-                                {/* Metadata */}
+
+                                {/* ═══ IMAGE QUALITY INDICATOR ═══ */}
+                                {results.image_quality && (
+                                    <div style={{ marginTop: '16px', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+                                        <label style={{ fontSize: '0.6rem', color: theme.dim, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>Qualité Image</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                                            <div style={{ flex: 1, height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <div style={{
+                                                    width: `${(results.image_quality.score || 0) * 100}%`,
+                                                    height: '100%',
+                                                    background: results.image_quality.score > 0.65
+                                                        ? `linear-gradient(90deg, ${theme.accent}, #4ECDC4)`
+                                                        : results.image_quality.score > 0.4
+                                                        ? 'linear-gradient(90deg, #FFE66D, #FF9F43)'
+                                                        : 'linear-gradient(90deg, #FF6B6B, #ee5a24)',
+                                                    borderRadius: '4px', transition: 'width 1s ease'
+                                                }} />
+                                            </div>
+                                            <span style={{ fontFamily: theme.fontData, fontSize: '0.7rem', color: theme.accent, fontWeight: 700, minWidth: '34px', textAlign: 'right' }}>
+                                                {Math.round((results.image_quality.score || 0) * 100)}%
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                            {results.image_quality.is_dark && (
+                                                <span style={{ fontSize: '0.6rem', background: 'rgba(255,230,109,0.15)', color: '#FFE66D', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(255,230,109,0.3)' }}>🌙 Low-Light</span>
+                                            )}
+                                            {results.image_quality.is_blurry && (
+                                                <span style={{ fontSize: '0.6rem', background: 'rgba(255,107,107,0.15)', color: '#FF6B6B', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(255,107,107,0.3)' }}>🌫️ Blur</span>
+                                            )}
+                                            {results.image_quality.tta_used && (
+                                                <span style={{ fontSize: '0.6rem', background: `rgba(0,255,179,0.15)`, color: theme.accent, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${theme.border}` }}>🔄 TTA Actif</span>
+                                            )}
+                                            <span style={{ fontSize: '0.6rem', background: 'rgba(255,255,255,0.05)', color: theme.dim, padding: '2px 8px', borderRadius: '6px' }}>
+                                                {results.image_quality.preprocessing || 'standard'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Metadata (pipeline details) */}
                                 {results.metadata && (
-                                    <div style={{ marginTop: '20px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+                                    <div style={{ marginTop: '12px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
                                         <label style={{ fontSize: '0.6rem', color: theme.dim, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>Pipeline Metadata</label>
                                         {Object.entries(results.metadata).map(([k, v]) => (
                                             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', padding: '3px 0', fontFamily: theme.fontData }}>
                                                 <span style={{ color: theme.dim }}>{k}</span>
-                                                <span style={{ color: theme.accent }}>{v}</span>
+                                                <span style={{ color: theme.accent }}>{String(v)}</span>
                                             </div>
                                         ))}
                                     </div>

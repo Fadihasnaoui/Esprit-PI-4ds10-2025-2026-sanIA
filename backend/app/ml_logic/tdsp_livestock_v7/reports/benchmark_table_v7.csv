@@ -1,0 +1,2 @@
+Modèle,Chemin,Images testées,Temps moyen / image,FPS estimé,Périphérique,Statut
+Meilleur modèle,g:\HP\Nouveaudd\tdsp_livestock_v7\runs\finetune_cls_v6\weights\best.pt,24,179.86064999998538,5.559859813695109,CPU,OK

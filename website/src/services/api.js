@@ -61,6 +61,7 @@ export const livestockService = {
   createZone: (data) => api.post('/animals/zones', data),
   deleteZone: (id) => api.delete(`/animals/zones/${id}`),
   getMyFarm: () => api.get('/animals/farm/me'),
+  getAnimalEnvironment: (id) => api.get(`/animals/${id}/environment`),
   performAutoScan: (lat, lon) => api.post(`/livestock_scans/orbital-scan?lat=${lat}&lon=${lon}`),
   performHealthScan: (file, species = 'Bovin', animalId = null) => {
     const formData = new FormData();

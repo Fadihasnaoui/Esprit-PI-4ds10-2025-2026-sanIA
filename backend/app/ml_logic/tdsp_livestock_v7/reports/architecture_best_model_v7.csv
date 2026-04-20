@@ -1,0 +1,11 @@
+Index,Type,Paramètres,Paramètres entraînables,Rôle
+0,Conv,464,0,Extraction de caractéristiques locales
+1,Conv,4672,0,Extraction de caractéristiques locales
+2,C2f,7360,0,Fusion / apprentissage hiérarchique
+3,Conv,18560,0,Extraction de caractéristiques locales
+4,C2f,49664,0,Fusion / apprentissage hiérarchique
+5,Conv,73984,0,Extraction de caractéristiques locales
+6,C2f,197632,0,Fusion / apprentissage hiérarchique
+7,Conv,295424,0,Extraction de caractéristiques locales
+8,C2f,460288,0,Fusion / apprentissage hiérarchique
+9,Classify,335364,0,Tête de classification

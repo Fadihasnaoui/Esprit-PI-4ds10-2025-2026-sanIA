@@ -138,10 +138,37 @@ async def ingest_telemetry(
                 new_alert = Alert(
                     farm_id=target_animal.farm_id,
                     type=f"GEOFENCE_BREACH_{target_animal.tag_id}",
-                    severity="CRITICAL",
+                    severity="critical",
                     note=f"SVI ALERT: Animal {target_animal.tag_id} detected OUTSIDE grazing territory by Satellite Intelligence."
                 )
                 db.add(new_alert)
+                db.commit()
+
+        # --- Medical Threshold Checks ---
+        medical_alert_type = None
+        medical_note = None
+        
+        if payload.heart_rate > 120:
+            medical_alert_type = f"TACHYCARDIA_{target_animal.tag_id}"
+            medical_note = f"INDUSTRIAL MEDICAL ALERT: High heart rate ({payload.heart_rate} BPM) detected for {target_animal.tag_id}."
+        elif payload.temperature_c > 40.5:
+            medical_alert_type = f"FEVER_{target_animal.tag_id}"
+            medical_note = f"INDUSTRIAL MEDICAL ALERT: Critical temperature ({payload.temperature_c}°C) detected for {target_animal.tag_id}."
+            
+        if medical_alert_type:
+            existing_med_alert = db.query(Alert).filter(
+                Alert.farm_id == target_animal.farm_id,
+                Alert.type == medical_alert_type,
+                Alert.status == "open"
+            ).first()
+            if not existing_med_alert:
+                med_alert = Alert(
+                    farm_id=target_animal.farm_id,
+                    type=medical_alert_type,
+                    severity="high",
+                    note=medical_note
+                )
+                db.add(med_alert)
                 db.commit()
 
     # Real-world SVI Inference Logic: Confidence drops if target is moving fast

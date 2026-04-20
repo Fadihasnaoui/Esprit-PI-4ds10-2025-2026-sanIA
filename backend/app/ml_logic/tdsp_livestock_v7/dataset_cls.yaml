@@ -1,0 +1,9 @@
+path: g:\HP\Nouveaudd\tdsp_livestock_v7\augmented_cls
+train: train
+val: val
+test: test
+names:
+  0: cow
+  1: goat
+  2: horse
+  3: sheep

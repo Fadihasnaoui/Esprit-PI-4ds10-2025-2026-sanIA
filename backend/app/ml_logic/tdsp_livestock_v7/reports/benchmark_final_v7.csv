@@ -1,0 +1,4 @@
+Modèle,Chemin,Accuracy Top-1,Top-5,Params (M),GFLOPs,Temps moyen (ms),FPS,Statut
+YOLOv8n-cls (Baseline),,0.950833,1.0,1.440004,3.3,,,Modèle introuvable
+YOLOv8s-cls (Fine-tune),g:\HP\Nouveaudd\tdsp_livestock_v7\runs\baseline_cls_v6\weights\best.pt,0.964167,1.0,5.080324,12.5,97.23502499999388,10.284359982424675,OK (24 inférences)
+YOLOv8s-cls (ONNX export),g:\HP\Nouveaudd\tdsp_livestock_v7\exports\best.onnx,0.964167,1.0,5.080324,12.5,,,Erreur: amax(): Expected reduction dim 1 to have non-zero size.

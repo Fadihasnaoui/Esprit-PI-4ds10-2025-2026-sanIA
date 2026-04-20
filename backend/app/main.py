@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
-from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals, livestock_ws, livestock_scans
+from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals, livestock_ws, livestock_scans, health_scan
 from app.services.intelligence_daemon import intelligence_daemon
 from contextlib import asynccontextmanager
 from app.core.config import settings
@@ -54,6 +54,7 @@ app.include_router(ndvi.router, prefix=f"{settings.API_V1_STR}/ndvi", tags=["sat
 app.include_router(sensors.router, prefix=f"{settings.API_V1_STR}/sensors", tags=["sensors"])
 app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
 app.include_router(livestock_scans.router, prefix=f"{settings.API_V1_STR}/livestock_scans", tags=["satellite"])
+app.include_router(health_scan.router, prefix=f"{settings.API_V1_STR}/health-scan", tags=["health-diagnostic"])
 
 # Mount Data directory for SVI Assets
 data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "Data")
