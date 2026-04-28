@@ -4,7 +4,7 @@ import { livestockService } from '../services/api';
 
 const URGENCY_COLORS = { haute: '#ef4444', moyenne: '#fbbf24', basse: '#4ade80' };
 
-const HealthScanModal = ({ isOpen, onClose, animal }) => {
+const HealthScanModal = ({ isOpen, onClose, animal, onStatusUpdated }) => {
     const [status, setStatus] = useState('idle'); // idle | scanning | success | error
     const [previewUrl, setPreviewUrl] = useState(null);
     const [results, setResults] = useState(null);
@@ -56,8 +56,22 @@ const HealthScanModal = ({ isOpen, onClose, animal }) => {
 
         try {
             const res = await livestockService.performHealthScan(file, selectedSpecies, animal?.id);
-            setResults(res.data);
-            setStatus('success');
+            const data = res.data;
+            
+            if (data.status === 'error') {
+                setResults(data);
+                setError(data.error || "L'IA a rencontré un problème.");
+                setStatus('error');
+            } else {
+                setResults(data);
+                setStatus('success');
+                // Propagate the new medical status to the dashboard so the
+                // animal card reflects the diagnostic (Sain / Critique /
+                // Déshydraté / Sous-alimenté / Stressé) immediately.
+                if (data.animal && typeof onStatusUpdated === 'function') {
+                    onStatusUpdated(data.animal);
+                }
+            }
         } catch (err) {
             let msg = "Erreur lors de l'analyse.";
             if (err.response?.data?.detail) {
@@ -390,15 +404,21 @@ const HealthScanModal = ({ isOpen, onClose, animal }) => {
                         </div>
 
                         {/* Error */}
-                        {error && (
+                        {(error || status === 'error') && (
                             <div style={{
                                 background: 'rgba(239, 68, 68, 0.1)',
                                 border: '1px solid rgba(239, 68, 68, 0.3)',
                                 padding: '12px 14px', borderRadius: '12px',
                                 fontSize: '0.75rem', color: '#FF6B6B', marginBottom: '16px',
-                                display: 'flex', alignItems: 'center', gap: '8px'
+                                display: 'flex', flexDirection: 'column', gap: '8px'
                             }}>
-                                <AlertTriangle size={16} /> {error}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <AlertTriangle size={16} /> 
+                                    <span style={{ fontWeight: 700 }}>Erreur Diagnostic</span>
+                                </div>
+                                <div style={{ fontSize: '0.7rem', opacity: 0.8, lineHeight: '1.4' }}>
+                                    {error || "Une erreur inconnue est survenue."}
+                                </div>
                             </div>
                         )}
 

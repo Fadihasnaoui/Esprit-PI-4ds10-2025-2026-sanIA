@@ -77,18 +77,19 @@ async def analyze_animal_health(
     # Run analysis
     result = health_scan_service.analyze(image_bytes, species=species)
     
-    if result.get("status") == "error":
-        raise HTTPException(
-            status_code=500,
-            detail=result.get("error", "Erreur lors de l'analyse de santé.")
-        )
+    # We allow "error" status to return but we handle the HTTP exception at the end of the logical flow 
+    # to allow returning partial results or specific error structures if needed.
     
-    # Update animal status in database if animal_id provided
-    if animal_id:
+    # Update animal status in database if animal_id provided AND analysis was roughly successful
+    if animal_id and result.get("status") == "success":
         animal = db.query(Animal).filter(Animal.id == animal_id).first()
         if animal:
-            diagnosis_label = result.get("diagnosis", {}).get("primary", {}).get("label", "Sain")
-            # Clear old status if it was manual and set it to AI result
+            # Safely extract diagnosis label
+            diag_obj = result.get("diagnosis", {})
+            primary = diag_obj.get("primary", {})
+            diagnosis_label = primary.get("label", "Sain")
+            
+            # Map labels to DB status if necessary, or just store the label
             animal.status = diagnosis_label
             db.commit()
             db.refresh(animal)
@@ -102,6 +103,10 @@ async def analyze_animal_health(
             }
             result["animal"] = animal_info
     
+    # If the service returned an error status, we can still return the partial JSON (fallback) 
+    # but with a 200 OK if we want the front to show the "IA Indisponible" state gracefully,
+    # OR we raise 500 if it's a hard crash. 
+    # Here, we'll return 200 with the "error" status inside the JSON so the modal can show its custom error UI.
     return result
 
 

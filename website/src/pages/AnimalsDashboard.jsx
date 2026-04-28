@@ -5,14 +5,17 @@ import {
   Activity, Syringe, Pill, HeartPulse, Map, 
   TrendingUp, Wifi, WifiOff, LayoutGrid, Info,
   Edit, Trash2, X, Map as MapIcon, CheckCircle, AlertTriangle,
-  FileText, Download
+  FileText, Download, Command
 } from 'lucide-react';
 import axios from 'axios';
-import { livestockService, alertService } from '../services/api';
+import { livestockService, alertService, insightsService } from '../services/api';
 import LivestockMap from '../components/LivestockMap';
 import VitalSignsChart from '../components/VitalSignsChart';
 import OrbitalScanModal from '../components/OrbitalScanModal';
 import HealthScanModal from '../components/HealthScanModal';
+import HeatStressAlert from '../components/HeatStressAlert';
+import MagneticCard from '../components/MagneticCard';
+import CommandPalette from '../components/CommandPalette';
 
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -103,7 +106,7 @@ const ForageStockView = ({ animals }) => {
 };
 
 /* ── Pro-Advanced Health Records Section ── */
-const HealthTabs = ({ animal, consumption, vaccinations, treatments }) => {
+const HealthTabs = ({ animal, consumption, vaccinations, treatments, onHealthScan }) => {
   const [activeTab, setActiveTab] = useState('metabolic');
 
   const [liveTemp, setLiveTemp] = useState(24.0);
@@ -227,6 +230,32 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments }) => {
           <div style={{ fontSize: '0.6rem', color: '#4ade80', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>Sania Integrated Diagnostic</div>
         </div>
         <p style={{ fontSize: '0.75rem', color: '#fff', margin: 0, fontWeight: '500' }}>{getSaniaInsight()}</p>
+        
+        <button 
+          onClick={() => onHealthScan(animal)}
+          style={{
+            marginTop: '1rem',
+            width: '100%',
+            padding: '10px',
+            background: 'rgba(74, 222, 128, 0.2)',
+            border: '1px solid #4ade80',
+            borderRadius: '10px',
+            color: '#fff',
+            fontSize: '0.7rem',
+            fontWeight: '900',
+            letterSpacing: '1px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.3s'
+          }}
+          className="hover:bg-[#4ade80]/30 transition-all"
+        >
+          <Activity size={14} /> EXÉCUTER DIAGNOSTIC EXPERT
+        </button>
+
         <div style={{ marginTop: '0.6rem', display: 'flex', gap: '1rem' }}>
            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Météo : <span style={{ color: '#4ade80', fontWeight: 'bold' }}>{liveTemp.toFixed(1)}°C (Live)</span></div>
            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Santé herbe : <span style={{ color: '#4ade80', fontWeight: 'bold' }}>NDVI {liveNdvi.toFixed(2)}</span></div>
@@ -384,61 +413,78 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
     }
   `;
 
-  /* Pro Health Score Calculation */
+  /* Pro Health Score Calculation — respects BCS diagnostic labels */
   const getHealthInfo = (t, manualStatus) => {
     const isSVI = t?.source === 'SATELLITE_SVI';
-    const isActuallyCritique = t ? (t.heart_rate > 100 || t.temperature_c > 39.5 || t.heart_rate < 40 || t.geofence_status === 'BREACH') : (manualStatus === 'Critique' || manualStatus === 'URGENCE' || manualStatus === 'Malade');
-    return isActuallyCritique ? 
-      { label: 'Critique', color: '#ef4444', isBlinking: true, status: t?.geofence_status === 'BREACH' ? 'HORS ZONE' : 'Critique' } : 
-      { label: 'Sain', color: isSVI ? '#4ade80' : '#22c55e', isBlinking: false, status: isSVI ? 'SYNC SAT' : 'Sain' };
+    // Telemetry overrides for hard physiological anomalies
+    const telemetryCritique = t && (t.heart_rate > 100 || t.temperature_c > 39.5 || t.heart_rate < 40 || t.geofence_status === 'BREACH');
+    if (telemetryCritique) {
+      return { label: 'Critique', color: '#ef4444', isBlinking: true,
+               status: t?.geofence_status === 'BREACH' ? 'HORS ZONE' : 'Critique' };
+    }
+    // AI diagnostic status (from Health Scan) — all 5 classes
+    const aiStates = {
+      'Critique':       { label: 'Critique',      color: '#ef4444', isBlinking: true,  status: 'Critique' },
+      'URGENCE':        { label: 'Critique',      color: '#ef4444', isBlinking: true,  status: 'URGENCE' },
+      'Malade':         { label: 'Critique',      color: '#ef4444', isBlinking: true,  status: 'Malade' },
+      'Déshydraté':     { label: 'Déshydraté',    color: '#38bdf8', isBlinking: false, status: 'Déshydraté' },
+      'Sous-alimenté':  { label: 'Sous-alimenté', color: '#fbbf24', isBlinking: false, status: 'Sous-alimenté' },
+      'Stressé':        { label: 'Stressé',       color: '#a78bfa', isBlinking: false, status: 'Stressé' },
+    };
+    if (manualStatus && aiStates[manualStatus]) return aiStates[manualStatus];
+    // Default → Sain
+    return { label: 'Sain', color: isSVI ? '#4ade80' : '#22c55e', isBlinking: false,
+             status: isSVI ? 'SYNC SAT' : 'Sain' };
   };
 
   const health = getHealthInfo(telemetry, animal.status);
   const statusColor = health.color;
   const isSVI = telemetry?.source === 'SATELLITE_SVI';
+  // Live market valuation (ECB FX + seasonal Aïd/Ramadan multipliers + per-animal modulators).
+  // Falls back to a local static estimate if the insights API is unavailable.
+  const [marketPrice, setMarketPrice] = useState(null);
+  const [priceMeta, setPriceMeta] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!animal?.id) return;
+    insightsService.getAnimalPrice(animal.id)
+      .then(r => {
+        if (cancelled) return;
+        setMarketPrice(r.data?.price_tnd ?? null);
+        setPriceMeta(r.data?.breakdown ?? null);
+      })
+      .catch(() => { /* keep fallback */ });
+    return () => { cancelled = true; };
+  }, [animal?.id, animal?.status, animal?.weight_kg]);
+
   const estimatedPrice = useMemo(() => {
+    if (marketPrice != null) return marketPrice;
+    // Offline fallback — same math as before
     const basePrices = { 'bovin': 4800, 'ovin': 1450, 'caprin': 980, 'cheval': 8500, 'volaille': 35 };
     let price = basePrices[animal.species?.toLowerCase()] || 1000;
-    
-    // Factor 1: Age Impact
     if (animal.birth_date) {
-      const birth = new Date(animal.birth_date);
-      const ageYears = (new Date() - birth) / (1000 * 60 * 60 * 24 * 365.25);
-      if (ageYears < 0.5) price *= 0.65; // Weanling
-      else if (ageYears < 1.5) price *= 0.90; // Yearling
-      else if (ageYears > 8) price *= 0.70; // Old
+      const ageYears = (new Date() - new Date(animal.birth_date)) / (1000 * 60 * 60 * 24 * 365.25);
+      if (ageYears < 0.5) price *= 0.65;
+      else if (ageYears < 1.5) price *= 0.90;
+      else if (ageYears > 8) price *= 0.70;
     }
-    
-    // Factor 2: Health Status (AI Analysis) - Naïf / Maigre / Critique
-    if (health.label === 'Critique') {
-      price *= 0.40; // Major health crisis
-    } else if (['Déshydraté', 'Sous-alimenté', 'Stressé', 'Malade'].includes(animal.status)) {
-      price *= 0.75; // "Naïf" or poor condition impact
-    }
-    
-    // Factor 3: Weight Dynamics (Species-specific thresholds)
+    if (health.label === 'Critique') price *= 0.40;
+    else if (['Déshydraté', 'Sous-alimenté', 'Stressé', 'Malade'].includes(animal.status)) price *= 0.75;
     const currentWeight = telemetry?.weight_kg || animal.weight_kg;
     if (currentWeight) {
-      const species = animal.species?.toLowerCase();
-      if (species === 'bovin' && currentWeight < 350) price *= 0.85;
-      else if (species === 'ovin' && currentWeight < 45) price *= 0.82;
-      else if (species === 'caprin' && currentWeight < 30) price *= 0.80;
+      const sp = animal.species?.toLowerCase();
+      if (sp === 'bovin' && currentWeight < 350) price *= 0.85;
+      else if (sp === 'ovin' && currentWeight < 45) price *= 0.82;
+      else if (sp === 'caprin' && currentWeight < 30) price *= 0.80;
     }
-    
-    // Factor 4: Market Variance (Safety check for ID)
-    const animalId = animal.id || "";
-    const variance = animalId ? (parseInt(animalId.substring(0, 2), 16) % 10) - 5 : 0; 
-    price *= (1 + variance / 100);
-
-    // Final Rounding for "Chiffres Ronds" (Round Numbers)
     if (price > 1000) return Math.round(price / 50) * 50;
-    if (price > 100) return Math.round(price / 10) * 10;
+    if (price > 100)  return Math.round(price / 10) * 10;
     return Math.round(price / 5) * 5;
-  }, [animal, health.label, telemetry?.weight_kg, animal.status]);
+  }, [animal, health.label, telemetry?.weight_kg, animal.status, marketPrice]);
 
   return (
     <div
-      className={`glass-card animate-slide-up ${health.isBlinking ? 'card-status-blink' : ''}`}
+      className={`glass-card ${health.isBlinking ? 'card-status-blink' : ''}`}
       style={{ 
         padding: '1.2rem', 
         display: 'flex', 
@@ -495,8 +541,17 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
             textAlign: 'right',
             boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
           }}>
-            <div style={{ fontSize: '0.5rem', color: '#fde047', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Prix Estimé</div>
-            <div style={{ fontSize: '0.95rem', fontWeight: '900', color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>{estimatedPrice.toLocaleString()} <span style={{ fontSize: '0.6rem', color: '#fde047' }}>TND</span></div>
+            <div style={{ fontSize: '0.5rem', color: '#fde047', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Prix Marché {marketPrice != null ? '(Live)' : '(Estimé)'}
+            </div>
+            <div style={{ fontSize: '0.95rem', fontWeight: '900', color: '#fff', fontFamily: "'JetBrains Mono', monospace" }}>
+              {estimatedPrice.toLocaleString()} <span style={{ fontSize: '0.6rem', color: '#fde047' }}>TND</span>
+            </div>
+            {priceMeta?.seasonal?.event && (
+              <div style={{ fontSize: '0.5rem', color: '#fbbf24', fontWeight: 700, marginTop: '2px' }}>
+                🌙 {priceMeta.seasonal.event} ×{priceMeta.seasonal.multiplier}
+              </div>
+            )}
           </div>
           <button 
             onClick={() => onEdit(animal)} 
@@ -610,6 +665,7 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
           consumption={healthData.consumption} 
           vaccinations={healthData.vaccinations} 
           treatments={healthData.treatments} 
+          onHealthScan={onHealthScan}
         />
       )}
     </div>
@@ -843,9 +899,12 @@ const AnimalsDashboard = ({ user }) => {
   // Global Health stats
   const activeCount = Object.keys(telemetryData).length;
   
+  const CRITIQUE_STATUSES = ['Critique', 'URGENCE', 'Malade'];
   const critiqueAnimals = animals.filter(a => {
     const t = telemetryData[a.id];
-    return t ? (t.heart_rate > 100 || t.temperature_c > 39.5 || t.geofence_status === 'BREACH') : (a.status === 'Critique');
+    const telemetryFlag = t && (t.heart_rate > 100 || t.temperature_c > 39.5 || t.heart_rate < 40 || t.geofence_status === 'BREACH');
+    const diagnosticFlag = CRITIQUE_STATUSES.includes(a.status);
+    return telemetryFlag || diagnosticFlag;
   });
   
   const critiqueCount = critiqueAnimals.length;
@@ -924,6 +983,11 @@ const AnimalsDashboard = ({ user }) => {
         </div>
       )}
 
+      {/* Live Heat-Stress Alert (OpenMeteo 72h THI forecast) — toutes les espèces de la ferme */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <HeatStressAlert speciesList={speciesList} />
+      </div>
+
       {/* Top Banner Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         {[
@@ -953,6 +1017,41 @@ const AnimalsDashboard = ({ user }) => {
         </div>
         
         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          {/* Command Center — icon-style launcher for the ⌘K palette */}
+          <button
+            onClick={() => {
+              const ev = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true });
+              window.dispatchEvent(ev);
+            }}
+            title="Command Center (Ctrl+K)"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: 44, height: 44, padding: 0, borderRadius: '12px',
+              background: 'rgba(74,222,128,0.08)',
+              border: '1px solid rgba(74,222,128,0.3)',
+              color: '#4ade80', cursor: 'pointer',
+              position: 'relative',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 0 12px rgba(74,222,128,0.08)',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(74,222,128,0.15)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(74,222,128,0.25)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(74,222,128,0.08)';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(74,222,128,0.08)';
+            }}
+          >
+            <Command size={18} strokeWidth={2.2} />
+            <kbd style={{
+              position: 'absolute', bottom: -6, right: -6,
+              background: '#0B0F1E', border: '1px solid rgba(74,222,128,0.4)',
+              borderRadius: 4, padding: '0 5px', fontSize: '0.55rem',
+              color: '#4ade80', fontFamily: "'JetBrains Mono', monospace",
+              fontWeight: 700, letterSpacing: 0.5,
+            }}>⌘K</kbd>
+          </button>
           {/* Quick Actions Group */}
           <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: '14px', padding: '0.35rem', border: '1px solid var(--glass-border)', gap: '0.4rem' }}>
             <button 
@@ -1062,35 +1161,42 @@ const AnimalsDashboard = ({ user }) => {
          <ForageStockView animals={filteredAnimals} />
       ) : viewMode === 'grid' ? (
         <div className="grid-cols-3">
-          {filteredAnimals.map((animal, i) => (
-            <AnimalCard 
-              key={animal.id} 
-              animal={animal} 
-              telemetry={telemetryData[animal.id]} 
-              delay={i} 
-              onEdit={(a) => {
-                setEditingAnimal(a);
-                setFormData({ 
-                  tag_id: a.tag_id, 
-                  species: a.species, 
-                  breed: a.breed, 
-                  gender: a.gender || 'Femelle',
-                  birth_date: new Date(a.birth_date).toISOString().split('T')[0],
-                  entry_date: a.entry_date ? new Date(a.entry_date).toISOString().split('T')[0] : '',
-                  status: a.status || 'Sain',
-                  weight_kg: a.weight_kg || '',
-                  latitude: a.latitude || '',
-                  longitude: a.longitude || ''
-                });
-                setIsModalOpen(true);
-              }}
-              onDelete={(a) => {
-                setAnimalToDelete(a);
-              }}
-              onPrint={(a, t, h) => setPrintingAnimal({ animal: a, telemetry: t, healthData: h })}
-              onHealthScan={(a) => setHealthScanAnimal(a)}
-            />
-          ))}
+          {filteredAnimals.map((animal, i) => {
+            const glow =
+              ['Critique', 'URGENCE', 'Malade'].includes(animal.status) ? 'rgba(239,68,68,0.35)' :
+              animal.status === 'Déshydraté' ? 'rgba(56,189,248,0.32)' :
+              animal.status === 'Sous-alimenté' ? 'rgba(251,191,36,0.32)' :
+              animal.status === 'Stressé' ? 'rgba(167,139,250,0.32)' :
+              'rgba(74,222,128,0.28)';
+            return (
+              <MagneticCard key={animal.id} index={i} strength={5} glowColor={glow}>
+                <AnimalCard
+                  animal={animal}
+                  telemetry={telemetryData[animal.id]}
+                  delay={i}
+                  onEdit={(a) => {
+                    setEditingAnimal(a);
+                    setFormData({
+                      tag_id: a.tag_id,
+                      species: a.species,
+                      breed: a.breed,
+                      gender: a.gender || 'Femelle',
+                      birth_date: new Date(a.birth_date).toISOString().split('T')[0],
+                      entry_date: a.entry_date ? new Date(a.entry_date).toISOString().split('T')[0] : '',
+                      status: a.status || 'Sain',
+                      weight_kg: a.weight_kg || '',
+                      latitude: a.latitude || '',
+                      longitude: a.longitude || ''
+                    });
+                    setIsModalOpen(true);
+                  }}
+                  onDelete={(a) => { setAnimalToDelete(a); }}
+                  onPrint={(a, t, h) => setPrintingAnimal({ animal: a, telemetry: t, healthData: h })}
+                  onHealthScan={(a) => setHealthScanAnimal(a)}
+                />
+              </MagneticCard>
+            );
+          })}
         </div>
       ) : (
         <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
@@ -1613,6 +1719,27 @@ const AnimalsDashboard = ({ user }) => {
         isOpen={!!healthScanAnimal}
         onClose={() => setHealthScanAnimal(null)}
         animal={healthScanAnimal}
+        onStatusUpdated={() => fetchAnimals()}
+      />
+      {/* Command Palette (⌘K / Ctrl+K) */}
+      <CommandPalette
+        animals={animals}
+        onSelectAnimal={(a) => setHealthScanAnimal(a)}
+        onAction={(id) => {
+          if (id === 'orbital')   setIsScanModalOpen(true);
+          if (id === 'health')    setHealthScanAnimal(animals[0] || null);
+          if (id === 'print' && animals[0]) setPrintingAnimal({ animal: animals[0], telemetry: telemetryData[animals[0].id], healthData: {} });
+          if (id === 'export') {
+            const csv = ['tag_id,species,breed,status,weight_kg']
+              .concat(animals.map(a => [a.tag_id, a.species, a.breed, a.status, a.weight_kg].join(',')))
+              .join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url; link.download = 'cheptel.csv'; link.click();
+            URL.revokeObjectURL(url);
+          }
+        }}
       />
     </div>
   );

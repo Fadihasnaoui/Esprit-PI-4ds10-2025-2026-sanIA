@@ -323,7 +323,9 @@ const OrbitalScanModal = ({ isOpen, onClose, user, farmLocation, manualCaptureLo
                         <div>PWR: 98.4%</div>
                         <div>TEMP: -12.2°C</div>
                         <div>LINK: AES-256</div>
-                        <div style={{ color: theme.accent, fontWeight: 800 }}>ENGINE: ULTRA-TILED V6</div>
+                        <div style={{ color: theme.accent, fontWeight: 800 }}>
+                            ENGINE: SVI ORBITAL Engine
+                        </div>
                     </div>
                 </div>
 
@@ -337,7 +339,6 @@ const OrbitalScanModal = ({ isOpen, onClose, user, farmLocation, manualCaptureLo
                             </div>
                             <div>
                                 <h3 style={{ margin: 0, fontSize: '1.3rem', letterSpacing: '2px', fontWeight: 900 }}>SVI CLASSIFIER</h3>
-                                <div style={{ fontSize: '0.65rem', color: theme.dim, letterSpacing: '1px' }}>EfficientNet-B0 • 4 Classes</div>
                             </div>
                         </div>
 
@@ -502,18 +503,67 @@ const OrbitalScanModal = ({ isOpen, onClose, user, farmLocation, manualCaptureLo
                                     </div>
                                 )}
 
-                                {/* Metadata (pipeline details) */}
-                                {results.metadata && (
-                                    <div style={{ marginTop: '12px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
-                                        <label style={{ fontSize: '0.6rem', color: theme.dim, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '8px' }}>Pipeline Metadata</label>
-                                        {Object.entries(results.metadata).map(([k, v]) => (
-                                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', padding: '3px 0', fontFamily: theme.fontData }}>
-                                                <span style={{ color: theme.dim }}>{k}</span>
-                                                <span style={{ color: theme.accent }}>{String(v)}</span>
+                                {/* ═══ ORBITAL INTELLIGENCE PANEL ═══ */}
+                                {results.orbital_intelligence && (
+                                    <div style={{ marginTop: '16px', padding: '14px', background: 'rgba(0,255,179,0.03)', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                                        <label style={{ fontSize: '0.6rem', color: theme.dim, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '10px' }}>
+                                            🛰️ Orbital Intelligence
+                                        </label>
+
+                                        {/* Herd count estimate */}
+                                        {results.total_animal_estimate > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                <span style={{ fontSize: '0.7rem', color: theme.dim }}>Effectif estimé</span>
+                                                <span style={{ fontSize: '0.75rem', fontFamily: theme.fontData, color: theme.accent, fontWeight: 700 }}>
+                                                    ~{results.total_animal_estimate} animaux
+                                                </span>
                                             </div>
-                                        ))}
+                                        )}
+
+                                        {/* Habitat type */}
+                                        {results.orbital_intelligence.habitat_type && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                <span style={{ fontSize: '0.7rem', color: theme.dim }}>Habitat</span>
+                                                <span style={{ fontSize: '0.7rem', color: '#fff' }}>
+                                                    {results.orbital_intelligence.habitat_type}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Analysis notes */}
+                                        {results.orbital_intelligence.analysis_notes && (
+                                            <div style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '0.65rem', color: 'rgba(224,230,237,0.7)', fontStyle: 'italic', lineHeight: 1.4 }}>
+                                                "{results.orbital_intelligence.analysis_notes}"
+                                            </div>
+                                        )}
+
+                                        {/* Engine badges */}
+                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
+                                            {results.orbital_intelligence.gemini_confirmed && (
+                                                <span style={{ fontSize: '0.6rem', background: 'rgba(0,255,179,0.12)', color: theme.accent, padding: '3px 9px', borderRadius: '8px', border: `1px solid ${theme.border}`, fontWeight: 700 }}>
+                                                    ✦ Gemini Vision
+                                                </span>
+                                            )}
+                                            {results.orbital_intelligence.yolo_detections > 0 && (
+                                                <span style={{ fontSize: '0.6rem', background: 'rgba(78,205,196,0.12)', color: '#4ECDC4', padding: '3px 9px', borderRadius: '8px', border: '1px solid rgba(78,205,196,0.3)', fontWeight: 700 }}>
+                                                    ⬡ YOLOv8 SAHI-9
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* GPS animal lock badge */}
+                                {results.metadata?.gps_animal && (
+                                    <div style={{ marginTop: '10px', padding: '10px 14px', background: 'rgba(255,230,109,0.07)', border: '1px solid rgba(255,230,109,0.25)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '0.9rem' }}>📍</span>
+                                        <div>
+                                            <div style={{ fontSize: '0.6rem', color: '#FFE66D', fontWeight: 700, letterSpacing: '1px' }}>GPS ANIMAL LOCK</div>
+                                            <div style={{ fontSize: '0.65rem', color: 'rgba(255,230,109,0.8)', fontFamily: theme.fontData }}>{results.metadata.gps_animal}</div>
+                                        </div>
+                                    </div>
+                                )}
+
 
                                 {/* Warning message for demo mode */}
                                 {results.message && (

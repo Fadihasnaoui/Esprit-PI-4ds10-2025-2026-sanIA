@@ -72,6 +72,18 @@ export const livestockService = {
   }
 };
 
+export const satelliteService = {
+  getZonesHealth: () => api.get('/satellite/zones-health'),
+  getSceneInfo: () => api.get('/satellite/scene-info'),
+};
+
+export const insightsService = {
+  getHeatStress: (species = 'Bovin', hours = 72) =>
+    api.get(`/insights/heat-stress?species=${encodeURIComponent(species)}&hours=${hours}`),
+  getMarketContext: () => api.get('/insights/market-prices'),
+  getAnimalPrice: (animalId) => api.get(`/insights/market-prices/${animalId}`),
+};
+
 export const diseaseService = {
   getScans: () => api.get('/scans/'),
   createScan: (data) => api.post('/scans/', data),
