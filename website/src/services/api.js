@@ -1,8 +1,21 @@
 import axios from 'axios';
 
 // Keep in sync with mobile (`mobile/src/services/api.js`) — default FastAPI port 8000.
-const API_PORT = import.meta.env.VITE_API_PORT ?? '8000';
-const API_URL = `http://${window.location.hostname}:${API_PORT}/api/v1`;
+// Dev: use relative `/api/v1` so Vite proxy (vite.config.js) forwards to http://127.0.0.1:8000 — fixes many "Network Error" cases.
+// Override anytime: VITE_API_URL=http://127.0.0.1:8000/api/v1
+function resolveApiBaseUrl() {
+  const explicit = import.meta.env.VITE_API_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, '');
+  }
+  if (import.meta.env.DEV) {
+    return '/api/v1';
+  }
+  const port = import.meta.env.VITE_API_PORT ?? '8000';
+  return `http://${window.location.hostname}:${port}/api/v1`;
+}
+
+const API_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_URL,
@@ -76,6 +89,17 @@ export const vraService = {
   getVraMap:       (fieldId) => api.get(`/vra/${fieldId}/map`),
   getSoilHealth:   (fieldId) => api.get(`/vra/${fieldId}/soil-health`),
   getCropCalendar: (fieldId) => api.get(`/vra/${fieldId}/crop-calendar`),
+  /** RAG: send full-analysis JSON to avoid a second satellite API call (LLM can be slow — long timeout) */
+  getRecommendations: (fieldId, analysisPayload) =>
+    api.post(
+      `/vra/${fieldId}/recommendations`,
+      { analysis: analysisPayload ?? null },
+      { timeout: 320000 },
+    ),
+};
+
+export const ragService = {
+  getStatus: () => api.get('/rag/status'),
 };
 
 export default api;

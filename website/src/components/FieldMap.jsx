@@ -125,47 +125,12 @@ const FieldMap = ({
             positions={zone.polygon}
             pathOptions={{
               fillColor: zone.color,
-              fillOpacity: 0.7,
+              fillOpacity: 0.72,
               stroke: true,
-              color: 'rgba(255,255,255,0.2)',
+              color: 'rgba(255,255,255,0.15)',
               weight: 1,
             }}
-          >
-            <Popup>
-              <div style={{ padding: '0.4rem', fontSize: '0.8rem', minWidth: '180px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '6px', borderBottom: '2px solid #66bd63', paddingBottom: '3px' }}>
-                  📡 Rapport Satellite
-                </div>
-                
-                <div style={{ marginBottom: '8px' }}>
-                  <span style={{ fontSize: '0.65rem', color: '#888', textTransform: 'uppercase' }}>Diagnostic</span><br />
-                  <b style={{ color: zone.color, fontSize: '0.85rem' }}>{diagnosticData.summary.health_label || 'Analyse en cours'}</b>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                  <div>
-                    <span style={{ fontSize: '0.6rem', color: '#888' }}>Moy. NDVI</span><br />
-                    <b>{zone.ndvi}</b>
-                  </div>
-                  {diagnosticData.summary.avg_evi && (
-                    <div>
-                      <span style={{ fontSize: '0.6rem', color: '#888' }}>Indice EVI</span><br />
-                      <b>{diagnosticData.summary.avg_evi}</b>
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ fontSize: '0.65rem', padding: '5px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', marginBottom: '8px' }}>
-                  📉 Écart: <b>{diagnosticData.summary.min_ndvi}</b> min → <b>{diagnosticData.summary.max_ndvi}</b> max
-                </div>
-
-                <div style={{ fontSize: '0.58rem', color: '#777', borderTop: '1px solid #333', paddingTop: '5px' }}>
-                  📅 {diagnosticData.summary.date} <br />
-                  🛰️ {diagnosticData.summary.source} (Nuages: {diagnosticData.summary.clouds}%)
-                </div>
-              </div>
-            </Popup>
-          </Polygon>
+          />
         ))}
 
         {/* VRA Map Overlay (Grid Slices) */}

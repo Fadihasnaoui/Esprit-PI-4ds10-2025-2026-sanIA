@@ -17,7 +17,6 @@ import ScanScreen from '../screens/main/ScanScreen';
 import ResultScreen from '../screens/main/ResultScreen';
 import HistoryScreen from '../screens/main/HistoryScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
-import SatelliteScreen from '../screens/main/SatelliteScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -85,7 +84,6 @@ function MainTabs() {
           const icons = {
             Home: focused ? 'home' : 'home-outline',
             Scan: focused ? 'scan-circle' : 'scan-circle-outline',
-            Satellite: focused ? 'globe' : 'globe-outline',
             History: focused ? 'time' : 'time-outline',
             Profile: focused ? 'person' : 'person-outline',
           };
@@ -103,7 +101,6 @@ function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('tabs.home') }} />
       <Tab.Screen name="Scan" component={ScanStack} options={{ tabBarLabel: t('tabs.detect') }} />
-      <Tab.Screen name="Satellite" component={SatelliteScreen} options={{ tabBarLabel: t('tabs.satellite') }} />
       <Tab.Screen name="History" component={HistoryScreen} options={{ tabBarLabel: t('tabs.history') }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('tabs.profile') }} />
     </Tab.Navigator>

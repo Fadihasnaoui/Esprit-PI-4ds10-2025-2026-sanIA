@@ -29,7 +29,7 @@ export default function ResultScreen({ route, navigation }) {
   useEffect(() => {
     let mounted = true;
     if (severity_pct != null) return undefined;
-    scanService.computeSeverity(imageUri, predicted_disease)
+    scanService.computeSeverity(imageUri, predicted_disease, confidence)
       .then((r) => {
         if (!mounted) return;
         setSeverityState({
@@ -44,7 +44,7 @@ export default function ResultScreen({ route, navigation }) {
         setSeverityState((prev) => ({ ...prev, loading: false }));
       });
     return () => { mounted = false; };
-  }, [severity_pct, imageUri, predicted_disease]);
+  }, [severity_pct, imageUri, predicted_disease, confidence]);
 
   const info = getDiseaseInfo(predicted_disease, t);
   const confidencePct = Math.round(confidence * 100);

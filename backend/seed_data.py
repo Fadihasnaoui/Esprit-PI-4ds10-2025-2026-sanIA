@@ -33,39 +33,55 @@ ANIMAL_IDS = [uuid.uuid4() for _ in range(8)]
 from sqlalchemy import text
 
 def seed():
-    # Force reset with CASCADE
-    print("Resetting database schema (force drop cascade)...")
-    with engine.connect() as conn:
-        conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
-        conn.commit()
-    
-    Base.metadata.create_all(bind=engine)
+    # SAFE: only create missing tables, never drop existing data
+    print("Ensuring pgvector extension...")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+        print("pgvector enabled.")
+    except Exception as _vec_err:
+        print(f"pgvector not available (RAG disabled): {_vec_err}")
+
+    # Ensure all models are registered
+    import app.models.all_models  # noqa: F401
+
+    # Create any missing tables (safe — existing data is preserved)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        skip_tables = {"knowledge_chunks"}
+        tables_to_create = [t for t in Base.metadata.sorted_tables if t.name not in skip_tables]
+        Base.metadata.create_all(bind=engine, tables=tables_to_create)
     
     db = SessionLocal()
     now = datetime.utcnow()
 
     try:
-        # 1. COOPERATIVE
+        # 1. COOPERATIVE — only if missing
         print("Creating cooperative...")
-        coop = Cooperative(id=COOP_ID, name="Cooperative Agricole du Cap Bon", location="Nabeul, Tunisie")
-        db.add(coop)
+        if not db.query(Cooperative).filter(Cooperative.id == COOP_ID).first():
+            coop = Cooperative(id=COOP_ID, name="Cooperative Agricole du Cap Bon", location="Nabeul, Tunisie")
+            db.add(coop)
 
-        # 3. USER (farmer)
+        # 2. USER (farmer) — only if missing
         print("Creating user...")
-        user = User(
-            id=FARMER_ID, name="Ahmed Ben Salem", email="farmer@agrismart.tn",
-            password_hash=get_password_hash("Farmer123!"),
-            role=UserRole.FARMER, cooperative_id=COOP_ID, farm_id=FARM_ID,
-        )
-        db.add(user)
+        if not db.query(User).filter(User.id == FARMER_ID).first():
+            user = User(
+                id=FARMER_ID, name="Ahmed Ben Salem", email="farmer@agrismart.tn",
+                password_hash=get_password_hash("Farmer123!"),
+                role=UserRole.FARMER, cooperative_id=COOP_ID, farm_id=FARM_ID,
+            )
+            db.add(user)
 
-        # 4. FARM
+        # 3. FARM — only if missing
         print("Creating farm...")
-        farm = Farm(
-            id=FARM_ID, cooperative_id=COOP_ID,
-            name="Domaine Ben Salem", location="Grombalia, Cap Bon", owner_name="Ahmed Ben Salem",
-        )
-        db.add(farm)
+        if not db.query(Farm).filter(Farm.id == FARM_ID).first():
+            farm = Farm(
+                id=FARM_ID, cooperative_id=COOP_ID,
+                name="Domaine Ben Salem", location="Grombalia, Cap Bon", owner_name="Ahmed Ben Salem",
+            )
+            db.add(farm)
         db.commit()
 
         # 5. FIELDS (including realistic polygons for NDVI demo)
@@ -98,8 +114,17 @@ def seed():
         ]
         for fd in fields_data:
             polygon_data = fd.pop("polygon")
-            db.add(Field(farm_id=FARM_ID, polygon_geojson=json.dumps(polygon_data), **fd))
+            if not db.query(Field).filter(Field.id == fd["id"]).first():
+                db.add(Field(farm_id=FARM_ID, polygon_geojson=json.dumps(polygon_data), **fd))
         db.commit()
+
+        # 6–9. Only generate transactional data if seed fields have none yet
+        already_seeded = db.query(SensorReading).filter(SensorReading.field_id == FIELD_IDS[0]).first() is not None
+        if already_seeded:
+            print("Transactional data already present — skipping sensor/NDVI/irrigation/scan generation.")
+            db.close()
+            print("\n" + "="*50 + "\nSuccess: Database already seeded — nothing overwritten!\n" + "="*50)
+            return
 
         # 6. SENSOR READINGS
         print("Generating sensor readings...")

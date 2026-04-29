@@ -15,6 +15,7 @@ import { Leaf } from 'lucide-react';
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState(null);
   const [showAssistant, setShowAssistant] = useState(false);
 
   useEffect(() => {
@@ -22,11 +23,20 @@ function App() {
   }, [currentPage]);
 
   React.useEffect(() => {
+    setAuthError(null);
     authService.login('farmer@agrismart.tn', 'Farmer123!')
-      .then(() => setIsAuthenticated(true))
-      .catch(err => {
-        console.error("Login failed:", err);
-        setIsAuthenticated(true); 
+      .then(() => {
+        setIsAuthenticated(true);
+      })
+      .catch((err) => {
+        console.error('Login failed:', err);
+        localStorage.removeItem('token');
+        setIsAuthenticated(false);
+        setAuthError(
+          err?.response?.status === 401
+            ? 'Identifiants refusés. Lancez le backend et le seed (farmer@agrismart.tn).'
+            : 'Connexion API impossible. Démarrez le backend sur le port 8000 et vérifiez le terminal.',
+        );
       });
   }, []);
 
@@ -41,6 +51,7 @@ function App() {
         justifyContent: 'center', 
         color: 'var(--text-light)',
         gap: '1.5rem',
+        padding: '1.5rem',
       }}>
         <div className="floating" style={{
           padding: '1rem',
@@ -50,7 +61,7 @@ function App() {
         }}>
           <Leaf size={32} color="#fff" />
         </div>
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: 'center', maxWidth: '420px' }}>
           <h2 style={{ 
             fontFamily: "'Newsreader', serif",
             fontSize: '1.4rem',
@@ -60,11 +71,21 @@ function App() {
           }}>
             SANIA
           </h2>
-          <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', letterSpacing: '1px' }}>
-            Initialisation du système...
-          </p>
+          {!authError ? (
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', letterSpacing: '1px' }}>
+              Initialisation du système...
+            </p>
+          ) : (
+            <p style={{ color: '#f0b429', fontSize: '0.88rem', lineHeight: 1.5 }}>
+              {authError}
+              <br />
+              <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
+                Depuis le dossier backend : <code style={{ color: 'var(--text-light)' }}>python seed_data.py</code>
+              </span>
+            </p>
+          )}
         </div>
-        {/* Loading bar */}
+        {!authError && (
         <div style={{ 
           width: '200px', 
           height: '3px', 
@@ -80,6 +101,7 @@ function App() {
             animation: 'shimmer 1.5s ease-in-out infinite',
           }}></div>
         </div>
+        )}
       </div>
     );
   }

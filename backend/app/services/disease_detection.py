@@ -9,6 +9,10 @@ import numpy as np
 from PIL import Image
 from typing import Tuple, List, Dict
 
+# Quieter TensorFlow logs (must run before `import tensorflow`)
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # 0=all … 2=hide INFO, 3=errors only
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")  # hides oneDNN “custom operations” INFO line
+
 logger = logging.getLogger(__name__)
 
 # Try full tensorflow first (TF 2.20 installed in this venv)
@@ -80,6 +84,7 @@ _severity_interpreter = None
 
 def get_severity_label(pct: float) -> Tuple[str, str]:
     """Determine severity label and color based on percentage of leaf area affected."""
+    pct = float(np.asarray(pct).reshape(-1)[0])
     for s in SEVERITY_LABELS:
         if pct < s["max"]:
             return s["label"], s["color"]
@@ -130,12 +135,27 @@ def predict(image_bytes: bytes) -> Tuple[str, float, List[Dict]]:
     interpreter = _get_classification_interpreter()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
+    if not input_details or not output_details:
+        raise RuntimeError("Classification model has no input/output tensors (check TensorFlow / model file).")
 
     input_data = preprocess_image(image_bytes)
     interpreter.set_tensor(input_details[0]["index"], input_data)
     interpreter.invoke()
 
-    probabilities: np.ndarray = interpreter.get_tensor(output_details[0]["index"])[0]
+    raw_out = interpreter.get_tensor(output_details[0]["index"])
+    probabilities = np.asarray(raw_out, dtype=np.float32).reshape(-1)
+    if probabilities.size != len(CLASS_NAMES):
+        logger.warning(
+            "Classifier output length %s != %s classes; truncating/padding for labels.",
+            probabilities.size,
+            len(CLASS_NAMES),
+        )
+        if probabilities.size < len(CLASS_NAMES):
+            padded = np.zeros(len(CLASS_NAMES), dtype=np.float32)
+            padded[: probabilities.size] = probabilities
+            probabilities = padded
+        else:
+            probabilities = probabilities[: len(CLASS_NAMES)]
 
     top5_indices = np.argsort(probabilities)[::-1][:5]
     top5 = [
@@ -153,18 +173,27 @@ def predict_severity(image_bytes: bytes) -> Tuple[float, str, str]:
         interpreter = _get_severity_interpreter()
         input_details = interpreter.get_input_details()
         output_details = interpreter.get_output_details()
+        if not input_details or not output_details:
+            raise RuntimeError("Severity model has no input/output tensors.")
 
-        # Input: [1, 128, 128, 3] float32 normalized to [0, 1]
-        input_data = preprocess_image(image_bytes, target_size=(128, 128), normalize=True)
+        # Match resize to model input (typically [1, H, W, 3] NHWC).
+        # shape may be a numpy array — never use `shape or ()` (ambiguous truth value).
+        raw_shape = input_details[0].get("shape")
+        shape = tuple(int(x) for x in np.asarray(raw_shape).flatten()) if raw_shape is not None else ()
+        h = int(shape[1]) if len(shape) > 1 and shape[1] > 0 else 128
+        w = int(shape[2]) if len(shape) > 2 and shape[2] > 0 else h
+        input_data = preprocess_image(image_bytes, target_size=(w, h), normalize=True)
         interpreter.set_tensor(input_details[0]["index"], input_data)
         interpreter.invoke()
 
-        # Output: [1, 128, 128, 1] mask
-        mask = interpreter.get_tensor(output_details[0]["index"])[0]
-        diseased_pixel_count = np.sum(mask > 0.5)
-        total_pixel_count = mask.size
+        raw_mask = interpreter.get_tensor(output_details[0]["index"])
+        mask = np.asarray(raw_mask, dtype=np.float32).squeeze()
+        diseased_pixel_count = float(np.sum(mask > 0.5))
+        total_pixel_count = int(mask.size) if mask.size else 1
 
-        severity_pct = round((float(diseased_pixel_count) / total_pixel_count) * 100, 1)
+        severity_pct = float(
+            round((diseased_pixel_count / total_pixel_count) * 100, 1)
+        )
         label, color = get_severity_label(severity_pct)
         return severity_pct, label, color
     except Exception as e:

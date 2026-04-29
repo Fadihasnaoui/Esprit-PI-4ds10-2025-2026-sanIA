@@ -1,14 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api, { API_BASE_URL } from './api';
+import api from './api';
 
 export const authService = {
   async login(email, password) {
     // FastAPI OAuth2 requires form-encoded body
-    const form = new URLSearchParams();
-    form.append('username', email);
-    form.append('password', password);
+    // Using manual encoding for reliable React Native / Hermes compatibility
+    const formBody =
+      `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
 
-    const response = await api.post('/auth/login', form.toString(), {
+    const response = await api.post('/auth/login', formBody, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
 

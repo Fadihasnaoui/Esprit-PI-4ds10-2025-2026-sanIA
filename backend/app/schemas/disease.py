@@ -5,7 +5,7 @@ from datetime import datetime
 
 
 class DiseaseScanBase(BaseModel):
-    field_id: UUID
+    field_id: Optional[UUID] = None
     crop_type: str
     image_url: str
 

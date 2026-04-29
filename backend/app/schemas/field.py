@@ -21,6 +21,7 @@ class FieldCreate(FieldBase):
 class FieldInDB(FieldBase):
     id: UUID
     farm_id: UUID
+    eosda_field_id: Optional[int] = None
     created_at: datetime
     class Config: from_attributes = True
 

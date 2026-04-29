@@ -8,6 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../services/api';
 import { colors, gradients, radius, shadows } from '../../theme/theme';
 
 const LOGO = require('../../../assets/logo.jpg');
@@ -29,8 +30,16 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (err) {
-      const msg = err.response?.data?.detail || t('auth.loginFailedDefault');
-      Alert.alert(t('auth.loginFailed'), msg);
+      const isNetwork =
+        err.code === 'ERR_NETWORK' ||
+        err.message === 'Network Error' ||
+        String(err.message || '').includes('Network');
+      const detail =
+        err.response?.data?.detail ||
+        (isNetwork
+          ? `${t('auth.loginFailedDefault')}\n\nAPI: ${API_BASE_URL}\n(${t('auth.networkHint')})`
+          : err.message || t('auth.loginFailedDefault'));
+      Alert.alert(t('auth.loginFailed'), detail);
     } finally {
       setLoading(false);
     }

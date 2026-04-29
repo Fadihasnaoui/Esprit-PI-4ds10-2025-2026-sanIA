@@ -1,9 +1,11 @@
+import os
+from pathlib import Path
 
 import requests
-import os
 from dotenv import load_dotenv
 
-load_dotenv()
+_BACKEND = Path(__file__).resolve().parent
+load_dotenv(_BACKEND / ".env", override=True)
 API_KEY = os.getenv("AGROMONITORING_API_KEY")
 
 def check():
@@ -11,7 +13,7 @@ def check():
         print("Erreur: Pas de clé API")
         return
 
-    url = f"http://api.agromonitoring.com/agro/1.0/polygons?appid={API_KEY}"
+    url = f"https://api.agromonitoring.com/agro/1.0/polygons?appid={API_KEY}"
     res = requests.get(url)
     print(f"Status Coordonnées: {res.status_code}")
     if res.status_code == 200:

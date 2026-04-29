@@ -11,4 +11,19 @@ alembic==1.12.1
 python-dotenv==1.0.0
 Pillow==10.1.0
 numpy==1.26.2
-tflite-runtime==2.14.0
+# Disease TFLite (Windows): use tensorflow-cpu 2.15.x — TF 2.17+ Lite can throw tuple index out of range in get_input_details().
+tensorflow-cpu>=2.15.1,<2.16
+# Linux can alternatively use: pip install tflite-runtime (no full TensorFlow)
+# RAG: pgvector client + embeddings (use with CREATE EXTENSION vector in Postgres)
+pgvector==0.3.5
+openai>=1.40.0
+pypdf>=4.0.0
+# Free local RAG embeddings (CPU; first run downloads ~80MB model)
+sentence-transformers>=2.2.0
+# Sentinel-2 NDVI via Microsoft Planetary Computer (STAC + COG; no Agromonitoring key)
+pystac-client>=0.7.0
+planetary-computer>=1.0.0
+rasterio>=1.3.0
+shapely>=2.0.0
+pyproj>=3.6.0
+python-dateutil>=2.8.0

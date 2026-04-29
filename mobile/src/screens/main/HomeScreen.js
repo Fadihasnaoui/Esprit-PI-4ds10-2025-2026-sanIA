@@ -105,25 +105,25 @@ export default function HomeScreen({ navigation }) {
 
           {/* ── Features ──────────────────────────────── */}
           <View style={styles.section}>
-            <Text style={styles.sectionKicker}>{t('home.sectionTimeline') ?? 'FEATURES'}</Text>
-            <Text style={styles.sectionTitle}>What SANIA can do</Text>
+            <Text style={styles.sectionKicker}>{t('home.featuresKicker')}</Text>
+            <Text style={styles.sectionTitle}>{t('home.featuresTitle')}</Text>
             <View style={styles.featureGrid}>
               <FeatureCard
                 icon="scan-outline"
-                label="Instant diagnosis"
-                sub="Scan leaves"
+                label={t('home.featDiagTitle')}
+                sub={t('home.featDiagSub')}
                 active={false}
               />
               <FeatureCard
                 icon="notifications-outline"
-                label="Smart reminders"
-                sub="Watering & fertilizing"
+                label={t('home.featReminderTitle')}
+                sub={t('home.featReminderSub')}
                 active
               />
               <FeatureCard
                 icon="checkmark-done-outline"
-                label="Actionable plans"
-                sub="Stop treatments"
+                label={t('home.featPlanTitle')}
+                sub={t('home.featPlanSub')}
                 active={false}
               />
             </View>
@@ -133,8 +133,8 @@ export default function HomeScreen({ navigation }) {
                 <Ionicons name="bulb-outline" size={22} color={colors.accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.featureRowTitle}>Instant Solutions</Text>
-                <Text style={styles.featureRowSub}>Find easy care tips and remedies to bring your plants back to life.</Text>
+                <Text style={styles.featureRowTitle}>{t('home.featSolutionsTitle')}</Text>
+                <Text style={styles.featureRowSub}>{t('home.featSolutionsSub')}</Text>
               </View>
             </View>
 
@@ -143,8 +143,8 @@ export default function HomeScreen({ navigation }) {
                 <Ionicons name="bar-chart-outline" size={22} color={colors.accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.featureRowTitle}>{t('home.tipTitle')}</Text>
-                <Text style={styles.featureRowSub}>Monitor your plants over time and see their progress.</Text>
+                <Text style={styles.featureRowTitle}>{t('home.featProgressTitle')}</Text>
+                <Text style={styles.featureRowSub}>{t('home.featProgressSub')}</Text>
               </View>
             </View>
           </View>

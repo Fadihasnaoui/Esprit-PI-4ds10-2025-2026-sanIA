@@ -96,15 +96,12 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* ── About ─── */}
+          {/* ── About us ─── */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('profile.about')}</Text>
-            <View style={styles.glassCard}>
-              <MenuItem icon="leaf-outline" label={t('profile.app')} value={t('profile.appValue')} accent={colors.accent} />
-              <View style={styles.divider} />
-              <MenuItem icon="hardware-chip-outline" label={t('profile.ai')} value={t('profile.aiValue')} accent={colors.textMuted} />
-              <View style={styles.divider} />
-              <MenuItem icon="server-outline" label={t('profile.backend')} value={t('profile.backendValue')} accent={colors.textMuted} />
+            <Text style={styles.sectionTitle}>{t('profile.aboutUsTitle')}</Text>
+            <View style={styles.aboutCard}>
+              <Ionicons name="information-circle-outline" size={22} color={colors.accent} style={styles.aboutIcon} />
+              <Text style={styles.aboutText}>{t('profile.aboutUsBody')}</Text>
             </View>
           </View>
 
@@ -204,6 +201,22 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   sectionHint: { fontSize: 12, color: colors.textMuted, marginBottom: 10, lineHeight: 18 },
+
+  aboutCard: {
+    backgroundColor: colors.glass,
+    borderRadius: radius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    ...shadows.soft,
+  },
+  aboutIcon: { marginBottom: 10 },
+  aboutText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+    letterSpacing: 0.2,
+  },
 
   // Glass card
   glassCard: {

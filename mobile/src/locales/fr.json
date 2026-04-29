@@ -10,7 +10,6 @@
   "tabs": {
     "home": "Accueil",
     "detect": "Détecter",
-    "satellite": "Satellite",
     "history": "Historique",
     "profile": "Profil"
   },
@@ -27,6 +26,7 @@
     "missingFieldsMsg": "Veuillez saisir votre e-mail et votre mot de passe.",
     "loginFailed": "Échec de la connexion",
     "loginFailedDefault": "Connexion impossible. Vérifiez vos identifiants.",
+    "networkHint": "Téléphone réel : mettez l’IP Wi‑Fi du PC dans src/config/backendUrl.js ; lancez l’API avec --host 0.0.0.0 ; même Wi‑Fi.",
     "joinSania": "Rejoindre SANIA",
     "createFarmerAccount": "Créez votre compte agriculteur",
     "fullName": "Nom complet",
@@ -69,7 +69,19 @@
     "farmerDefault": "Agriculteur",
     "confidenceLine": "{{crop}} · {{pct}} % de confiance",
     "statusHealthy": "Saine",
-    "statusDiseased": "Malade"
+    "statusDiseased": "Malade",
+    "featuresKicker": "Fonctionnalités",
+    "featuresTitle": "Ce que SANIA peut faire",
+    "featDiagTitle": "Diagnostic instantané",
+    "featDiagSub": "Scannez les feuilles en quelques secondes",
+    "featReminderTitle": "Rappels intelligents",
+    "featReminderSub": "Arrosage et fertilisation",
+    "featPlanTitle": "Plans d’action",
+    "featPlanSub": "Des étapes claires pour protéger votre culture",
+    "featSolutionsTitle": "Solutions immédiates",
+    "featSolutionsSub": "Conseils pratiques et remèdes pour aider vos plantes à se rétablir.",
+    "featProgressTitle": "Suivi dans le temps",
+    "featProgressSub": "Suivez l’évolution de vos plantes et voyez les progrès."
   },
   "scan": {
     "kicker": "Labo IA",
@@ -146,6 +158,8 @@
   "profile": {
     "account": "Compte",
     "about": "À propos",
+    "aboutUsTitle": "À propos de nous",
+    "aboutUsBody": "SANIA AgriSmart aide les agriculteurs et les coopératives à repérer les maladies des plantes à partir de photos de feuilles grâce à une IA embarquée. Nous combinons la classification des maladies avec une carte de sévérité pour montrer à la fois le problème et la part de feuille touchée — même sans connexion internet. Notre mission : une agriculture pratique et durable en Tunisie et au-delà.",
     "supportedCrops": "Cultures prises en charge",
     "fullName": "Nom complet",
     "email": "E-mail",

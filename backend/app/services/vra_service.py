@@ -235,11 +235,22 @@ def generate_vra_map(db: Session, field: Field, ndvi_data: Optional[dict] = None
 
     if avg_ndvi is None:
         avg_ndvi = _get_latest_ndvi(db, field.id)
-    if avg_ndvi is None:
-        avg_ndvi = 0.35  # conservative neutral default (not 0.40 which inflates scores)
 
-    if min_ndvi is None: min_ndvi = max(0.0, avg_ndvi - 0.15)
-    if max_ndvi is None: max_ndvi = min(1.0, avg_ndvi + 0.20)
+    # If no NDVI at all, return empty VRA map
+    if avg_ndvi is None:
+        return {
+            "avg_ndvi": None,
+            "min_ndvi": None,
+            "max_ndvi": None,
+            "zones": [],
+            "savings_pct": None,
+            "note": "Aucune donnée satellite disponible pour ce champ. Cliquez Actualiser pour lancer une analyse.",
+        }
+
+    if min_ndvi is None:
+        min_ndvi = max(0.0, avg_ndvi - 0.15)
+    if max_ndvi is None:
+        max_ndvi = min(1.0, avg_ndvi + 0.20)
 
     # Estimate zone area proportions from NDVI spread
     ndvi_range = max(max_ndvi - min_ndvi, 0.05)
@@ -362,20 +373,21 @@ def get_soil_health(db: Session, field: Field, ndvi_data: Optional[dict] = None)
 
     if avg_ndvi is None:
         avg_ndvi = _get_latest_ndvi(db, field.id)
-    if avg_ndvi is None:
-        avg_ndvi = 0.35  # conservative neutral default
     sensor_moisture = _get_latest_moisture(db, field.id)
 
     # ── Vegetation Indices ──
-    L = 0.5  # Soil brightness correction factor
-    savi  = round(avg_ndvi * (1 + L) / (avg_ndvi + L + 0.0001), 3)
-    # MSAVI = (2*NDVI + 1 - sqrt((2*NDVI+1)^2 - 8*(NDVI-0))) / 2  (approximated from NDVI)
     import math
-    msavi_inner = (2 * avg_ndvi + 1) ** 2 - 8 * avg_ndvi
-    msavi = round((2 * avg_ndvi + 1 - math.sqrt(max(msavi_inner, 0))) / 2, 3)
+    L = 0.5  # Soil brightness correction factor
+    if avg_ndvi is not None:
+        savi  = round(avg_ndvi * (1 + L) / (avg_ndvi + L + 0.0001), 3)
+        msavi_inner = (2 * avg_ndvi + 1) ** 2 - 8 * avg_ndvi
+        msavi = round((2 * avg_ndvi + 1 - math.sqrt(max(msavi_inner, 0))) / 2, 3)
+    else:
+        savi = None
+        msavi = None
 
     # ── Moisture Stress ──
-    if avg_evi is not None and avg_evi > 0:
+    if avg_evi is not None and avg_evi > 0 and avg_ndvi is not None:
         msi_ratio = round(avg_evi / max(avg_ndvi, 0.01), 2)
         moisture_stress = "Low" if msi_ratio >= 0.7 else ("Moderate" if msi_ratio >= 0.5 else "High")
     elif sensor_moisture is not None:
@@ -387,28 +399,29 @@ def get_soil_health(db: Session, field: Field, ndvi_data: Optional[dict] = None)
 
     # ── Soil Type Classification (Heuristic) ──
     if sensor_moisture is not None:
-        if sensor_moisture > 60 and savi > 0.4:
+        if sensor_moisture > 60 and (savi or 0) > 0.4:
             soil_type = "Argileux (Forte rétention d'eau)"
-        elif sensor_moisture < 35 and savi < 0.3:
+        elif sensor_moisture < 35 and (savi or 0) < 0.3:
             soil_type = "Sableux (Faible drainage Rapide)"
         else:
             soil_type = "Limoneux (Rétention moyenne)"
     else:
-        if avg_ndvi > 0.5:
+        if (avg_ndvi or 0) > 0.5:
             soil_type = "Limono-argileux (Estimé)"
         else:
             soil_type = "Sablo-limoneux (Estimé)"
 
     # ── Soil Fertility Class ──
-    if avg_ndvi >= 0.60:
+    _ndvi = avg_ndvi if avg_ndvi is not None else 0.0
+    if _ndvi >= 0.60:
         fertility_class = "High"
         fertility_color = "#1a9850"
         fertility_desc  = "Soil is well-nourished. Maintain current practices."
-    elif avg_ndvi >= 0.40:
+    elif _ndvi >= 0.40:
         fertility_class = "Medium"
         fertility_color = "#fdae61"
         fertility_desc  = "Adequate fertility. Consider targeted fertilization."
-    elif avg_ndvi >= 0.20:
+    elif _ndvi >= 0.20:
         fertility_class = "Low"
         fertility_color = "#e74c3c"
         fertility_desc  = "Nutrient deficiency likely. Apply N-P-K based on VRA map."
@@ -418,9 +431,9 @@ def get_soil_health(db: Session, field: Field, ndvi_data: Optional[dict] = None)
         fertility_desc  = "Severe stress or bare soil. Immediate intervention required."
 
     # ── Overall Health Score (0–100) ──
-    ndvi_score     = min(avg_ndvi * 100 * 1.2, 50)   # max 50 pts
+    ndvi_score     = min(_ndvi * 100 * 1.2, 50)       # max 50 pts
     moisture_score = {"Low": 30, "Moderate": 20, "High": 10}[moisture_stress]
-    savi_score     = min(savi * 100 * 0.5, 20)        # max 20 pts
+    savi_score     = min((savi or 0) * 100 * 0.5, 20)  # max 20 pts
     health_score   = round(ndvi_score + moisture_score + savi_score)
     health_score   = max(0, min(100, health_score))
 

@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
+  # pgvector enabled (same PG 15 — required for RAG embeddings in Postgres)
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: sania_db
     restart: always
     environment:
@@ -22,11 +21,16 @@ services:
     restart: always
     volumes:
       - ./backend:/app
+      # Optional: mount a .txt or .pdf corpus (adjust filename + KNOWLEDGE_FILE_PATH)
+      # - ./pdf_text.txt:/app/knowledge/corpus.txt:ro
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:sania_pass@db:5432/sania_db
       - POSTGRES_SERVER=db
+      # - KNOWLEDGE_FILE_PATH=/app/knowledge/corpus.txt
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - RAG_INGEST_SECRET=${RAG_INGEST_SECRET:-}
     depends_on:
       - db
 

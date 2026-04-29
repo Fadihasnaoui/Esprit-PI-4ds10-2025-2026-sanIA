@@ -10,7 +10,6 @@
   "tabs": {
     "home": "الرئيسية",
     "detect": "كشف",
-    "satellite": "الأقمار",
     "history": "السجل",
     "profile": "الحساب"
   },
@@ -27,6 +26,7 @@
     "missingFieldsMsg": "أدخل البريد وكلمة السر.",
     "loginFailed": "فشل الدخول",
     "loginFailedDefault": "تعذّر الدخول. تحقّق من البيانات.",
+    "networkHint": "هاتف حقيقي: حط IP الواي فاي للبي سي في src/config/backendUrl.js وشغّل السيرفر بـ --host 0.0.0.0 ونفس الواي فاي.",
     "joinSania": "انضم إلى SANIA",
     "createFarmerAccount": "أنشئ حساب فلاح",
     "fullName": "الاسم الكامل",
@@ -69,7 +69,19 @@
     "farmerDefault": "فلاح",
     "confidenceLine": "{{crop}} · {{pct}}% ثقة",
     "statusHealthy": "سليمة",
-    "statusDiseased": "مريضة"
+    "statusDiseased": "مريضة",
+    "featuresKicker": "الميزات",
+    "featuresTitle": "شنو يقدر يدير SANIA",
+    "featDiagTitle": "كشف فوري",
+    "featDiagSub": "صوّر الورقة في ثواني",
+    "featReminderTitle": "تذكيرات ذكية",
+    "featReminderSub": "ريّ وسماد",
+    "featPlanTitle": "خطوات واضحة",
+    "featPlanSub": "إجراءات عملية لحماية المحصول",
+    "featSolutionsTitle": "حلول فورية",
+    "featSolutionsSub": "نصائح عملية وعلاجات باش النبات يرجع يفيق.",
+    "featProgressTitle": "تتبّع التقدّم",
+    "featProgressSub": "راقب نباتاتك مع الوقت وشوف التحسّن."
   },
   "scan": {
     "kicker": "مختبر ذكاء",
@@ -146,6 +158,8 @@
   "profile": {
     "account": "الحساب",
     "about": "عن التطبيق",
+    "aboutUsTitle": "من نحن",
+    "aboutUsBody": "SANIA AgriSmart يساعد الفلاحين والتعاونيات يكتشفوا أمراض النبات من صور الأوراق بالذكاء الاصطناعي على الهاتف. نجمع بين تصنيف المرض وخريطة الشدة باش تشوف المشكل وقدّاش من الورقة مصاب — حتى من غير إنترنت. هدفنا فلاحة عملية ومستدامة في تونس وبرّا.",
     "supportedCrops": "المحاصيل",
     "fullName": "الاسم الكامل",
     "email": "البريد",
@@ -168,9 +182,9 @@
     "cancel": "إلغاء",
     "language": "اللغة",
     "languageHint": "اختر لغة التطبيق",
-    "languageEn": "English",
-    "languageFr": "Français",
-    "languageTn": "تونسي (عربي)"
+    "languageEn": "الإنجليزية",
+    "languageFr": "الفرنسية",
+    "languageTn": "التونسي (دارجة)"
   },
   "satellite": {
     "headerTitle": "تحليل الأقمار الصناعية",

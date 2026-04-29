@@ -2,8 +2,10 @@ from sqlalchemy import Column, String, Float, Integer, ForeignKey, DateTime, Enu
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from pgvector.sqlalchemy import Vector
 import uuid
 import enum
+from ..core.config import settings
 from ..db.session import Base
 
 class UserRole(str, enum.Enum):
@@ -51,6 +53,7 @@ class Field(Base):
     crop_type = Column(String)
     area_ha = Column(Float)
     polygon_geojson = Column(Text, nullable=True)
+    eosda_field_id = Column(Integer, nullable=True)   # EOSDA Field Management API id
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     farm = relationship("Farm", back_populates="fields")
     sensor_readings = relationship("SensorReading", back_populates="field")
@@ -148,3 +151,16 @@ class Alert(Base):
     note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     farm = relationship("Farm", back_populates="alerts")
+
+
+class KnowledgeChunk(Base):
+    """Text chunks from PDFs / guides with embeddings for RAG (pgvector)."""
+    __tablename__ = "knowledge_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_path = Column(String(512), index=True, nullable=False)
+    chunk_index = Column(Integer, nullable=False, default=0)
+    content = Column(Text, nullable=False)
+    # Dimension follows settings.EMBEDDING_DIMENSION (384 local, 1536 typical OpenAI / Token Factory API).
+    embedding = Column(Vector(settings.EMBEDDING_DIMENSION), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

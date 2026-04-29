@@ -10,7 +10,6 @@
   "tabs": {
     "home": "Home",
     "detect": "Detect",
-    "satellite": "Satellite",
     "history": "History",
     "profile": "Profile"
   },
@@ -27,6 +26,7 @@
     "missingFieldsMsg": "Please enter your email and password.",
     "loginFailed": "Login Failed",
     "loginFailedDefault": "Login failed. Check your credentials.",
+    "networkHint": "Real phone: set PC Wi‑Fi IP in src/config/backendUrl.js; run API with --host 0.0.0.0; same Wi‑Fi.",
     "joinSania": "Join SANIA",
     "createFarmerAccount": "Create your farmer account",
     "fullName": "Full name",
@@ -69,7 +69,19 @@
     "farmerDefault": "Farmer",
     "confidenceLine": "{{crop}} · {{pct}}% confidence",
     "statusHealthy": "Healthy",
-    "statusDiseased": "Diseased"
+    "statusDiseased": "Diseased",
+    "featuresKicker": "Features",
+    "featuresTitle": "What SANIA can do",
+    "featDiagTitle": "Instant diagnosis",
+    "featDiagSub": "Scan leaves in seconds",
+    "featReminderTitle": "Smart reminders",
+    "featReminderSub": "Watering & fertilizing tips",
+    "featPlanTitle": "Actionable plans",
+    "featPlanSub": "Clear steps to protect your crop",
+    "featSolutionsTitle": "Instant solutions",
+    "featSolutionsSub": "Practical care tips and remedies to help your plants recover.",
+    "featProgressTitle": "Track progress",
+    "featProgressSub": "Follow your plants over time and see improvement."
   },
   "scan": {
     "kicker": "AI lab",
@@ -147,6 +159,8 @@
   "profile": {
     "account": "Account",
     "about": "About",
+    "aboutUsTitle": "About us",
+    "aboutUsBody": "SANIA AgriSmart helps farmers and cooperatives spot plant diseases from leaf photos using on-device AI. We combine disease classification with a severity map so you see both what the problem is and how much of the leaf is affected — even without internet. Our mission is practical, sustainable agriculture in Tunisia and beyond.",
     "supportedCrops": "Supported crops",
     "fullName": "Full Name",
     "email": "Email",
