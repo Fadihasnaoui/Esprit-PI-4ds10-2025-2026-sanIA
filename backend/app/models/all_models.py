@@ -145,3 +145,22 @@ class Alert(Base):
     note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     farm = relationship("Farm", back_populates="alerts")
+
+
+class RagConversation(Base):
+    __tablename__ = "rag_conversations"
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    messages = relationship("RagMessage", back_populates="conversation", cascade="all, delete-orphan")
+
+
+class RagMessage(Base):
+    __tablename__ = "rag_messages"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    conversation_id = Column(String, ForeignKey("rag_conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    conversation = relationship("RagConversation", back_populates="messages")

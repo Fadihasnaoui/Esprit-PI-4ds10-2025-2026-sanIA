@@ -57,7 +57,11 @@ export const ndviService = {
 };
 
 export const ragService = {
-  ask: (question) => api.post('/rag/ask', { question }),
+  ask: (question, conversationId) =>
+    api.post('/rag/ask', { question, conversation_id: conversationId }, { timeout: 180000 }),
+  listConversations: () => api.get('/rag/conversations'),
+  getConversation: (conversationId) => api.get(`/rag/conversations/${conversationId}`),
+  clearConversation: (conversationId) => api.delete(`/rag/conversations/${conversationId}`),
   rebuildIndex: () => api.post('/rag/index'),
 };
 

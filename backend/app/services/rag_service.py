@@ -1,129 +1,121 @@
-"""
-RAG Service — Sania AgriSmart
-Knowledge sources: treatment1/detailed_treatments.csv,
-                   treatment2/treatment_2.csv,
-                   treatment2/*.txt,
-                   treatment2/*.pdf
- "answer": "I'm an agricultural assistant for the Sania AgriSmart platform, and I'll be happy to help you with your question.\n\nHowever, I need to clarify that the data provided seems to be related to crop monitoring and weather conditions. It appears to contain information about soil moisture, air temperature, relative humidity, wind speed, rainfall, reference evapotranspiration, and other factors affecting crops. The data does not seem to relate to a specific disease or condition, including Iskra (also known as black measles).\n\nIf you meant to ask about a different topic or provide more context, please feel free to do so, and I'll do my best to assist you.",Vector store    : FAISS (disk-persisted, rebuilt on demand)
-LLM             : Llama 3 (8B) via Ollama
-"""
-
 from __future__ import annotations
-
 import io
 import csv
+import json
 import logging
 import pickle
+import uuid
 from pathlib import Path
-from typing import List, Dict, Any, Union
-import httpx
+from typing import List, Dict, Any, Generator
 import numpy as np
 from pypdf import PdfReader
+from openai import OpenAI
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 
 from ..core.config import settings
+from ..db.session import engine
+from ..models.all_models import RagConversation, RagMessage
 
 logger = logging.getLogger(__name__)
 
-
+# ── Globals ───────────────────────────────────────────────────────────────────
 _index = None
 _chunks: List[str] = []
 _chunk_metadata: List[Dict[str, Any]] = []
 _model = None
+MAX_HISTORY_TURNS = 6
 
 DATA_DIR = Path(settings.RAG_DATA_DIR)
-# Les fichiers persistants sont stockés dans le dossier parent de DATA_DIR
 _PERSIST_DIR = DATA_DIR.parent
 INDEX_FILE = _PERSIST_DIR / "vector_index.bin"
 METADATA_FILE = _PERSIST_DIR / "metadata.pkl"
-
-# Nom du fichier Excel arabe (utilisé pour le routing arabe)
 ARABIC_XLSX = "translated_agronomic_ar.xlsx"
 
+# ── Token Factory client ──────────────────────────────────────────────────────
+# Variables à ajouter dans .env :
+#   TOKEN_FACTORY_API_KEY=votre_clé
+#   TOKEN_FACTORY_BASE_URL=https://tokenfactory.esprit.tn/api
+#   TOKEN_FACTORY_MODEL=hosted_vllm/Llama-3.1-70B-Instruct
 
-class OllamaEmbeddingModel:
-    def __init__(self, model_name: str):
-        self.model_name = model_name
+def _get_client() -> OpenAI:
+    return OpenAI(
+        api_key=settings.TOKEN_FACTORY_API_KEY,
+        base_url=settings.TOKEN_FACTORY_BASE_URL,
+    )
 
-    def encode(self, texts: Union[str, List[str]], **kwargs) -> List[List[float]]:
-        import httpx
-        results = []
-        if isinstance(texts, str):
-            texts = [texts]
-            
-        batch_size = kwargs.get("batch_size", 64)
-        
-        with httpx.Client(timeout=120.0) as client:
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i:i + batch_size]
-                try:
-                    response = client.post(
-                        f"{settings.OLLAMA_BASE_URL}/api/embed",
-                        json={
-                            "model": self.model_name,
-                            "input": batch,
-                        }
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        if "embeddings" in data:
-                            results.extend(data["embeddings"])
-                            continue
-                    else:
-                        logger.warning(f"Batch embed failed with status {response.status_code}: {response.text}")
-                except Exception as e:
-                    logger.warning(f"Batch embed failed, falling back to single embeddings: {e}")
-                
-                # Fallback
-                for text in batch:
-                    response = client.post(
-                        f"{settings.OLLAMA_BASE_URL}/api/embeddings",
-                        json={
-                            "model": self.model_name,
-                            "prompt": text,
-                        }
-                    )
-                    if response.status_code != 200:
-                        err_msg = f"Ollama HTTP {response.status_code}: {response.text}"
-                        logger.error(err_msg)
-                        raise RuntimeError(err_msg)
-                    
-                    data = response.json()
-                    results.append(data.get("embedding", []))
-                    
-        return results
 
+def _call_llm(prompt: str, system: str, max_tokens: int) -> str:
+    """Appel LLM synchrone — retourne la réponse complète."""
+    response = _get_client().chat.completions.create(
+        model=settings.TOKEN_FACTORY_MODEL,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user",   "content": prompt},
+        ],
+        temperature=0.3,
+        max_tokens=max_tokens,
+        top_p=0.9,
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def _stream_llm(prompt: str, system: str, max_tokens: int) -> Generator[str, None, None]:
+    """Appel LLM en streaming — yield les tokens un à un."""
+    stream = _get_client().chat.completions.create(
+        model=settings.TOKEN_FACTORY_MODEL,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user",   "content": prompt},
+        ],
+        temperature=0.3,
+        max_tokens=max_tokens,
+        top_p=0.9,
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+        stream=True,
+    )
+    for chunk in stream:
+        token = chunk.choices[0].delta.content
+        if token:
+            yield token
+
+
+# ── Embedding model (singleton) ───────────────────────────────────────────────
 def _get_model():
+    """Charge SentenceTransformer une seule fois en mémoire."""
     global _model
     if _model is None:
-        logger.info("Loading embedding model all-MiniLM-L6-v2 …")
+        logger.info("Loading embedding model all-MiniLM-L6-v2 on CPU …")
         from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        try:
+            _model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        except Exception as first_error:
+            logger.warning(f"Embedding load (cpu) failed: {first_error}. Retrying without device=…")
+            _model = SentenceTransformer("all-MiniLM-L6-v2")
         logger.info("Embedding model loaded.")
     return _model
 
 
-
-# Text extractors
+# ── Text extractors ───────────────────────────────────────────────────────────
 def _extract_txt(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
 def _extract_pdf(path: Path) -> str:
     reader = PdfReader(str(path))
-    pages = []
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            pages.append(text)
-    return "\n".join(pages)
+    return "\n".join(
+        p.extract_text() for p in reader.pages if p.extract_text()
+    )
 
 
 def _extract_csv(path: Path) -> str:
     lines = []
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
-        reader = csv.DictReader(io.StringIO(content))
-        for row in reader:
+        for row in csv.DictReader(io.StringIO(content)):
             parts = [f"{k}: {v}" for k, v in row.items() if v]
             lines.append(" | ".join(parts))
     except Exception as e:
@@ -132,13 +124,15 @@ def _extract_csv(path: Path) -> str:
 
 
 def _extract_xlsx(path: Path) -> str:
-    """Extrait le texte d'un fichier Excel (.xlsx) — supporte l'arabe."""
     import pandas as pd
     lines = []
     try:
         df = pd.read_excel(path, engine="openpyxl")
         for _, row in df.iterrows():
-            parts = [f"{col}: {val}" for col, val in row.items() if pd.notna(val) and str(val).strip()]
+            parts = [
+                f"{col}: {val}" for col, val in row.items()
+                if pd.notna(val) and str(val).strip()
+            ]
             if parts:
                 lines.append(" | ".join(parts))
     except Exception as e:
@@ -146,25 +140,21 @@ def _extract_xlsx(path: Path) -> str:
     return "\n".join(lines)
 
 
-# Chunking
+# ── Chunking ──────────────────────────────────────────────────────────────────
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     words = text.split()
-    chunks = []
-    start = 0
+    chunks, start = [], 0
     while start < len(words):
-        end = start + chunk_size
-        chunk = " ".join(words[start:end])
+        chunk = " ".join(words[start:start + chunk_size])
         if chunk.strip():
             chunks.append(chunk)
         start += chunk_size - overlap
     return chunks
 
 
-# Index Management (Load/Save/Build)
+# ── Index management ──────────────────────────────────────────────────────────
 def build_index() -> int:
-    """(Re)builds the FAISS index and saves it to disk."""
     global _index, _chunks, _chunk_metadata
-
     import faiss
 
     all_chunks: List[str] = []
@@ -174,39 +164,30 @@ def build_index() -> int:
         logger.warning(f"RAG data directory not found: {DATA_DIR}")
         return 0
 
+    extractors = {
+        ".pdf": _extract_pdf,
+        ".txt": _extract_txt,
+        ".csv": _extract_csv,
+        ".xlsx": _extract_xlsx,
+    }
+
     for fpath in DATA_DIR.rglob("*"):
         if not fpath.is_file() or fpath in [INDEX_FILE, METADATA_FILE]:
             continue
-        
-        suffix = fpath.suffix.lower()
-        # Ignorer les scripts Python et autres fichiers non-documentaires
-        if suffix not in [".pdf", ".txt", ".csv", ".xlsx"]:
-            continue
-        # Ignorer les scripts helper (ex: translater.py converti en xlsx)
-        if fpath.suffix.lower() == ".py":
+        extract = extractors.get(fpath.suffix.lower())
+        if not extract:
             continue
 
         logger.info(f"Ingesting {fpath.name} …")
         try:
-            if suffix == ".pdf":
-                text = _extract_pdf(fpath)
-            elif suffix == ".txt":
-                text = _extract_txt(fpath)
-            elif suffix == ".csv":
-                text = _extract_csv(fpath)
-            elif suffix == ".xlsx":
-                text = _extract_xlsx(fpath)
-            else:
-                continue
-            
-            chunks = _chunk_text(text)
+            chunks = _chunk_text(extract(fpath))
             for i, chunk in enumerate(chunks):
                 all_chunks.append(chunk)
                 all_metadata.append({
-                    "source": str(fpath.relative_to(DATA_DIR)),
+                    "source":   str(fpath.relative_to(DATA_DIR)),
                     "filename": fpath.name,
                     "chunk_id": i,
-                    "content": chunk,
+                    "content":  chunk,
                 })
             logger.info(f"  → {len(chunks)} chunks")
         except Exception as e:
@@ -214,254 +195,450 @@ def build_index() -> int:
 
     if not all_chunks:
         logger.warning("No chunks generated — index is empty.")
-        _chunks = []
-        _chunk_metadata = []
-        _index = None
+        _chunks, _chunk_metadata, _index = [], [], None
         return 0
 
     model = _get_model()
     logger.info(f"Embedding {len(all_chunks)} chunks …")
-    embeddings = model.encode(all_chunks, batch_size=64, show_progress_bar=False)
-    embeddings = np.array(embeddings, dtype="float32")
+    embeddings = np.array(
+        model.encode(all_chunks, batch_size=64, show_progress_bar=False),
+        dtype="float32",
+    )
 
-    dim = embeddings.shape[1]
-    idx = faiss.IndexFlatL2(dim)
+    idx = faiss.IndexFlatL2(embeddings.shape[1])
     idx.add(embeddings)
+    _index, _chunks, _chunk_metadata = idx, all_chunks, all_metadata
 
-    _index = idx
-    _chunks = all_chunks
-    _chunk_metadata = all_metadata
-
-    # Persist to disk
     try:
         faiss.write_index(idx, str(INDEX_FILE))
         with open(METADATA_FILE, "wb") as f:
             pickle.dump({"chunks": _chunks, "metadata": _chunk_metadata}, f)
-        logger.info(f"Index persisted to disk: {INDEX_FILE}")
+        logger.info(f"Index persisted: {INDEX_FILE}")
     except Exception as e:
         logger.error(f"Failed to persist index: {e}")
-    
-    logger.info(f"FAISS index built: {len(all_chunks)} chunks, dim={dim}")
+
+    logger.info(f"FAISS index built: {len(all_chunks)} chunks, dim={embeddings.shape[1]}")
     return len(all_chunks)
 
 
 def load_index() -> bool:
-    """Loads the FAISS index and metadata from disk if they exist."""
     global _index, _chunks, _chunk_metadata
-
     if not INDEX_FILE.exists() or not METADATA_FILE.exists():
-        logger.info("No persisted RAG index found on disk.")
+        logger.info("No persisted RAG index found.")
         return False
-
     import faiss
     try:
-        logger.info(f"Loading RAG index from {INDEX_FILE} …")
         _index = faiss.read_index(str(INDEX_FILE))
-        
         with open(METADATA_FILE, "rb") as f:
             data = pickle.load(f)
-            _chunks = data["chunks"]
-            _chunk_metadata = data["metadata"]
-        
-        logger.info(f"Index loaded successfully: {len(_chunks)} chunks.")
+        _chunks, _chunk_metadata = data["chunks"], data["metadata"]
+        logger.info(f"Index loaded: {len(_chunks)} chunks.")
         return True
     except Exception as e:
-        logger.error(f"Error loading persisted index: {e}")
+        logger.error(f"Error loading index: {e}")
         return False
 
 
-# ── Détection de langue ──────────────────────────────────────────────────────
+# ── Détection langue ──────────────────────────────────────────────────────────
 def _is_arabic(text: str) -> bool:
-    """Retourne True si le texte contient majoritairement des caractères arabes."""
-    arabic_chars = sum(1 for c in text if '\u0600' <= c <= '\u06FF')
-    return arabic_chars > len(text) * 0.2  # plus de 20 % de caractères arabes
-
-
-# ── Retrieval ────────────────────────────────────────────────────────────────
-def _retrieve(question: str, top_k: int = 10) -> List[Dict[str, Any]]:
-    """Retrieves top-K chunks.
-    
-    Si la question est en arabe, les chunks provenant du fichier XLSX arabe
-    sont remontés en priorité (top) dans les résultats.
-    """
-    global _index
-    
-    # Lazy load from disk if not already in memory
-    if _index is None:
-        if not load_index():
-            return []
-    
-    model = _get_model()
-    q_vec = model.encode([question], show_progress_bar=False)
-    q_vec = np.array(q_vec, dtype="float32")
-    
-    arabic_mode = _is_arabic(question)
-    # En mode arabe, on cherche plus large pour avoir assez de chunks arabes
-    search_k = top_k * 4 if arabic_mode else top_k
-    
-    distances, indices = _index.search(q_vec, min(search_k, len(_chunks)))
-    all_results = []
-    for rank, (idx, distance) in enumerate(zip(indices[0], distances[0]), start=1):
-        if 0 <= idx < len(_chunks):
-            meta = _chunk_metadata[idx]
-            all_results.append({
-                "rank": rank,
-                "score": float(distance),
-                "source": meta["source"],
-                "filename": meta["filename"],
-                "chunk_id": meta["chunk_id"],
-                "content": meta["content"],
-            })
-    
-    if not arabic_mode:
-        return all_results[:top_k]
-    
-    # Mode arabe : UNIQUEMENT les chunks arabes — pas de mélange avec l'anglais
-    # car le LLM suit la langue du contexte, pas les instructions
-    arabic_chunks = [r for r in all_results if r["filename"] == ARABIC_XLSX]
-    
-    # Si aucun chunk arabe trouvé, fallback sur les autres
-    if not arabic_chunks:
-        logger.warning("[Arabic mode] No Arabic chunks found, falling back to all chunks.")
-        merged = all_results[:top_k]
-    else:
-        merged = arabic_chunks[:top_k]
-    
-    # Renuméroter les ranks
-    for i, item in enumerate(merged, start=1):
-        item["rank"] = i
-    
-    logger.info(f"[Arabic mode] {len(arabic_chunks)} Arabic chunks found, returning {len(merged)} (Arabic only).")
-    return merged
+    """Vrai si plus de 20% des caractères sont arabes."""
+    if not text:
+        return False
+    arabic = sum(1 for c in text if '\u0600' <= c <= '\u06FF')
+    return arabic / len(text) > 0.2
 
 
 def _is_greeting(text: str) -> bool:
-    """Detects if the input is a simple greeting or social chat."""
+    """Vrai si le message est une simple salutation."""
     greetings = {
-        "bonjour", "salut", "hello", "hi", "coucou", "hey",
-        "ca va", "ça va", "how are you", "comment vas-tu",
-        "merci", "thanks", "au revoir", "bye", "goodbye","slt","bjr","bsr","bjour","bsoir","bonsoir"
+        # FR
+        "bonjour", "bonsoir", "salut", "coucou", "hey", "bjr", "bsr", "bj",
+        "ca va", "ça va", "comment vas-tu", "comment allez-vous",
+        "merci", "au revoir", "bye",
+        # EN
+        "hello", "hi", "good morning", "good evening", "thanks", "goodbye",
+        # AR
+        "مرحبا", "أهلا", "السلام عليكم", "صباح الخير", "مساء الخير",
+        "كيف حالك", "شكرا", "وداعا",
     }
-    clean_text = text.lower().strip().replace("?", "").replace("!", "")
-    return any(g == clean_text for g in greetings)
+    clean = text.lower().strip().rstrip("?! ،.")
+    return clean in greetings
 
 
-def query_rag(question: str) -> Dict[str, Any]:
-    """Retrieves context and calls LLM to generate an answer.
-    Bypasses retrieval for simple greetings.
-    """
-    
-    # 1. Intent Detection: Greetings & General Chat
-    if _is_greeting(question):
-        logger.info(f"Greeting detected: '{question}'. Bypassing RAG.")
-        prompt = f"""You are a friendly agricultural assistant for the Sania AgriSmart platform.
-The user just said: '{question}'.
-CRITICAL INSTRUCTION: You MUST respond in the EXACT SAME LANGUAGE as the user's message.
-- If the user speaks Arabic, you MUST reply entirely in Arabic.
-- If the user speaks French, you MUST reply entirely in French.
-Respond warmly and ask how you can help with their farm today. Keep it very short."""
-        
-        try:
-            response = httpx.post(
-                f"{settings.OLLAMA_BASE_URL}/api/generate",
-                json={
-                    "model": settings.OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "stream": False,
-                },
-                timeout=30.0,
+# ── Retrieval ─────────────────────────────────────────────────────────────────
+def _retrieve(question: str, top_k: int) -> List[Dict[str, Any]]:
+    global _index
+    if _index is None and not load_index():
+        return []
+
+    try:
+        model = _get_model()
+    except Exception as e:
+        logger.error(f"Embedding model initialization failed: {e}")
+        raise RuntimeError(
+            "Embedding model failed to initialize. Check torch/transformers compatibility in backend environment."
+        ) from e
+    q_vec = np.array(
+        model.encode([question], show_progress_bar=False),
+        dtype="float32",
+    )
+
+    arabic_mode = _is_arabic(question)
+    search_k = min(top_k * 4 if arabic_mode else top_k, len(_chunks))
+
+    distances, indices = _index.search(q_vec, search_k)
+    results = [
+        {
+            "rank":     rank,
+            "score":    float(dist),
+            "source":   _chunk_metadata[idx]["source"],
+            "filename": _chunk_metadata[idx]["filename"],
+            "chunk_id": _chunk_metadata[idx]["chunk_id"],
+            "content":  _chunk_metadata[idx]["content"],
+        }
+        for rank, (idx, dist) in enumerate(zip(indices[0], distances[0]), 1)
+        if 0 <= idx < len(_chunks)
+    ]
+
+    if not arabic_mode:
+        return results[:top_k]
+
+    # Mode arabe : prioriser les chunks du fichier arabe
+    arabic = [r for r in results if r["filename"] == ARABIC_XLSX]
+    merged = arabic[:top_k] if arabic else results[:top_k]
+    if not arabic:
+        logger.warning("[Arabic] No Arabic chunks found, fallback to all.")
+
+    for i, item in enumerate(merged, 1):
+        item["rank"] = i
+
+    logger.info(f"[Arabic] {len(arabic)} chunks arabes → {len(merged)} retournés.")
+    return merged
+
+
+# ── Helpers prompt ────────────────────────────────────────────────────────────
+def _build_prompt(question: str, context: str) -> tuple[str, str]:
+    """Retourne (system, user_prompt) selon la langue détectée."""
+    if _is_arabic(question):
+        system = (
+            "أنت سانيا، خبيرة زراعية لمنصة Sania AgriSmart. "
+            "أجب باللغة العربية فقط، بإيجاز ووضوح. "
+            "ممنوع أن تطلب من المستخدم استشارة خبير آخر أو مختص آخر؛ أنت الخبيرة التي تقدّم التوصية مباشرة."
+        )
+        prompt = (
+            f"السياق من قاعدة البيانات الزراعية:\n{context}\n\n"
+            f"السؤال: {question}\n\n"
+            "حدد المرض أو الآفة، أعراضه، والعلاج بالتفصيل."
+            "العلاج يجب أن يحتوي على:"
+            "- نوع العلاج (مبيد فطري، حشري، ممارسات زراعية)"
+            "- مثالين على الأقل لمواد فعالة (مثل مانكوزيب، ميتالاكسيل…)"
+            "- توقيت التطبيق (وقائي، بداية الإصابة، علاج)"
+            "- إجراءات ميدانية واضحة"
+            "هيكل الإجابة يجب أن يكون:"
+            "- المرض:"
+            "- الأعراض:"
+            "- العلاج:"
+            "   • علاج كيميائي:"
+            "   • ممارسات زراعية:"
+            "- الوقاية:"
+            "منوع إعطاء إجابات عامة مثل:"
+            "قد يكون من الضروري استخدام علاج كيميائي"
+            "إذا لم تجد العلاج في السياق:"
+            "→ استنتج أفضل علاج زراعي معروف لهذا المرض.\n"
+            "لا تقل للمستخدم أن يستشير مختصًا آخر.\n\nالإجابة:"
+        )
+    else:
+        system = (
+            "You are Sania, a specialized agronomist for Sania AgriSmart. "
+            "Reply ONLY in the same language as the farmer's question. Be concise and structured. "
+            "Do NOT tell the farmer to consult another specialist; you are the specialist and must provide actionable guidance."
+        )
+        prompt = (
+            f"[AGRICULTURAL DATABASE CONTEXT]:\n{context}\n\n"
+            f"[FARMER'S QUESTION]: {question}\n\n"
+            "Based ONLY on the context above:\n"
+            "1. Identify the disease or pest.\n"
+            "2. Describe key symptoms.\n"
+            "3.3. Provide a PRECISE treatment plan including:"
+            "   - Type of treatment (fungicide, insecticide, cultural practice)"
+            "   - At least 2 concrete product examples (active ingredients, not vague terms)"
+            "   - When to apply (timing: preventive, early infection, curative)"
+            "   - Practical field actions (remove infected plants, irrigation control, etc.)"
+
+            "4. Structure your answer EXACTLY like this:"
+            "   - Disease:"
+            "   - Symptoms:"
+            "   - Treatment:"
+            "       • Chemical treatment:"
+            "       • Cultural practices:"
+            "   - Prevention:"
+            "5. NEVER give vague answers like:"
+            "   a chemical treatment may be necessary"
+
+            "6. If treatment is missing in the context:"
+            "    infer the MOST COMMON agronomic treatment based on the identified disease\n"
+            "If info is insufficient, DO NOT say generic disclaimers like 'insufficient information'.\n"
+            "Instead, provide a concrete best-effort agronomic action plan from available context.\n"
+            "Never answer with 'consult a specialist'.\n\n"
+            "[EXPERT RESPONSE]:"
+        )
+    return system, prompt
+
+
+def _build_greeting_prompt(question: str) -> tuple[str, str]:
+    """Retourne (system, user_prompt) pour les salutations."""
+    if _is_arabic(question):
+        system = "أنت سانيا، مساعدة زراعية خبيرة لمنصة Sania AgriSmart. أجب باللغة العربية فقط."
+        prompt = f"المستخدم قال: '{question}'. رحّب به بإيجاز واسأله عن مشكلته الزراعية. (جملتان فقط)"
+    else:
+        system = (
+            "You are Sania, a friendly expert agronomist for Sania AgriSmart. "
+            "Always reply in the exact same language as the user."
+        )
+        prompt = (
+            f"The user said: '{question}'. "
+            "Greet them warmly as Sania the agronomist expert and ask how you can help with their crops. "
+            "(2 sentences max)"
+        )
+    return system, prompt
+
+
+def _sanitize_answer(answer: str, question: str, is_arabic: bool) -> str:
+    """Nettoie les formulations vagues/non actionnables."""
+    lowered = answer.lower()
+    blocked_phrases = [
+        "insufficient information",
+        "not enough information",
+        "ne fournit pas suffisamment d'informations",
+        "pas suffisamment d'informations",
+        "je n'ai pas assez d'informations",
+    ]
+    if any(p in lowered for p in blocked_phrases):
+        if is_arabic:
+            return (
+                f"بناءً على سؤالك حول: {question}\n"
+                "الخطة العملية المقترحة:\n"
+                "1) إزالة الأوراق أو الأجزاء المصابة فورًا.\n"
+                "2) تحسين التهوية وتقليل رطوبة الأوراق (السقي صباحًا وتجنب رش الماء على الأوراق).\n"
+                "3) متابعة الحقل يوميًا وعزل المناطق المصابة مبكرًا.\n"
+                "4) تطبيق برنامج وقائي/علاجي بالمبيد المناسب للمحصول والمرض وفق الجرعة المكتوبة على الملصق.\n"
+                "5) الوقاية للموسم القادم: دورة زراعية، أصناف مقاومة، ونظافة بقايا المحصول."
             )
-            response.raise_for_status()
-            data = response.json()
-            return {
-                "answer": data.get("response", "").strip(),
-                "sources": []
-            }
-        except Exception as e:
-            logger.error(f"Ollama direct generate failed: {e}")
-            return {"answer": "Bonjour ! Comment puis-je vous aider ?", "sources": []}
+        return (
+            f"Plan d'action concret pour votre question ({question}) :\n"
+            "1) Retirez immédiatement les feuilles/parties fortement atteintes.\n"
+            "2) Réduisez l'humidité foliaire (arrosage le matin, éviter d'arroser les feuilles).\n"
+            "3) Améliorez l'aération de la parcelle et espacez les plants si possible.\n"
+            "4) Appliquez un traitement fongicide/adapté à la culture et à la maladie en respectant strictement l'étiquette.\n"
+            "5) Prévention: rotation culturale, surveillance rapprochée, destruction des résidus infectés."
+        )
+    return answer
 
-    # 2. Technical Query: Full RAG Pipeline
-    # En mode arabe, récupérer plus de chunks pour avoir assez de contenu arabe
-    top_k = 10 if _is_arabic(question) else 5
+
+def _format_history(history: List[Dict[str, str]], max_turns: int = MAX_HISTORY_TURNS) -> str:
+    """Transforme l'historique en texte compact pour le prompt."""
+    if not history:
+        return ""
+    tail = history[-(max_turns * 2):]
+    lines = []
+    for msg in tail:
+        role = "Farmer" if msg["role"] == "user" else "Sania"
+        lines.append(f"{role}: {msg['content']}")
+    return "\n".join(lines)
+
+
+def init_rag_conversation_tables() -> None:
+    """Crée les tables RAG conversation si absentes."""
+    RagConversation.__table__.create(bind=engine, checkfirst=True)
+    RagMessage.__table__.create(bind=engine, checkfirst=True)
+
+
+def _get_or_create_conversation(db: Session, user_id: str, conversation_id: str | None) -> str:
+    cid = conversation_id or str(uuid.uuid4())
+    conversation = db.query(RagConversation).filter(
+        RagConversation.id == cid,
+        RagConversation.user_id == user_id,
+    ).first()
+    if conversation is None:
+        conversation = RagConversation(id=cid, user_id=user_id)
+        db.add(conversation)
+        db.commit()
+    return cid
+
+
+def _append_message(db: Session, conversation_id: str, role: str, content: str) -> None:
+    db.add(RagMessage(conversation_id=conversation_id, role=role, content=content))
+    db.query(RagConversation).filter(RagConversation.id == conversation_id).update(
+        {RagConversation.updated_at: func.now()},
+        synchronize_session=False,
+    )
+    db.commit()
+
+
+def list_conversations(db: Session, user_id: str) -> List[Dict[str, Any]]:
+    """Retourne toutes les conversations d'un utilisateur triées par date décroissante."""
+    conversations = (
+        db.query(RagConversation)
+        .filter(RagConversation.user_id == user_id)
+        .order_by(RagConversation.updated_at.desc())
+        .all()
+    )
+    result = []
+    for conv in conversations:
+        # Trouver le premier message utilisateur pour créer le titre
+        first_user_msg = next(
+            (m for m in sorted(conv.messages, key=lambda m: m.created_at) if m.role == "user"),
+            None
+        )
+        title = (first_user_msg.content[:40] + "...") if first_user_msg and len(first_user_msg.content) > 40 \
+                else (first_user_msg.content if first_user_msg else "Nouvelle discussion")
+        result.append({
+            "id": conv.id,
+            "title": title,
+            "updated_at": conv.updated_at.isoformat() if conv.updated_at else conv.created_at.isoformat(),
+            "message_count": len(conv.messages),
+        })
+    return result
+
+
+def get_conversation_history(db: Session, user_id: str, conversation_id: str) -> List[Dict[str, str]]:
+    messages = (
+        db.query(RagMessage)
+        .join(RagConversation, RagConversation.id == RagMessage.conversation_id)
+        .filter(
+            RagConversation.user_id == user_id,
+            RagConversation.id == conversation_id,
+        )
+        .order_by(RagMessage.created_at.asc())
+        .all()
+    )
+    return [{"role": m.role, "content": m.content} for m in messages]
+
+
+def clear_conversation(db: Session, user_id: str, conversation_id: str) -> bool:
+    conversation = db.query(RagConversation).filter(
+        RagConversation.user_id == user_id,
+        RagConversation.id == conversation_id,
+    ).first()
+    if conversation is None:
+        return False
+    db.delete(conversation)
+    db.commit()
+    return True
+
+
+# ── Query RAG principal ───────────────────────────────────────────────────────
+def query_rag(db: Session, question: str, user_id: str, conversation_id: str | None = None) -> Dict[str, Any]:
+    """
+    Pipeline RAG complet (réponse synchrone).
+    Retourne {"answer": str, "sources": list}.
+    """
+    conv_id = _get_or_create_conversation(db, user_id, conversation_id)
+    history = get_conversation_history(db, user_id, conv_id)
+
+    # --- Salutation : bypass RAG ---
+    if _is_greeting(question):
+        logger.info(f"Greeting détecté : '{question}'")
+        system, prompt = _build_greeting_prompt(question)
+        try:
+            answer = _call_llm(prompt, system=system, max_tokens=120)
+        except Exception as e:
+            logger.error(f"LLM greeting failed: {e}")
+            answer = "Bonjour ! Je suis Sania, votre experte agricole. Comment puis-je vous aider ?"
+        _append_message(db, conv_id, "user", question)
+        _append_message(db, conv_id, "assistant", answer)
+        return {"answer": answer, "sources": [], "conversation_id": conv_id}
+
+    # --- Requête technique : pipeline RAG ---
+    # Optimisation arabe : top_k réduit, chunks tronqués plus court
+    arabic = _is_arabic(question)
+    top_k       = 5          # identique FR et AR — moins = plus rapide
+    chunk_limit = 250 if arabic else 400
+    max_tokens  = 350 if arabic else 600
+
     retrieved = _retrieve(question, top_k=top_k)
-    
     if not retrieved:
         return {
             "answer": (
-                "⚠️ La base de connaissances est vide. "
+                "La base de connaissances est vide. "
                 "Veuillez indexer des documents via l'onglet Base de Connaissances."
             ),
-            "sources": []
+            "sources": [],
         }
 
-    context = "\n\n---\n\n".join([item["content"] for item in retrieved])
-
-    # ── Prompt spécifique selon la langue détectée ────────────────────────────
-    if _is_arabic(question):
-        # Prompt renforcé : instruction de langue AVANT et APRÈS le contexte
-        prompt = f"""[تعليمات النظام]: أنت مساعد زراعي خبير لمنصة Sania AgriSmart. لغة الإجابة المطلوبة: العربية فقط. يُحظر استخدام الإنجليزية أو الفرنسية.
-
-بناءً على السياق التالي فقط، أجب على سؤال المستخدم بشكل مفصل باللغة العربية.
-إذا لم تجد المعلومات الكافية في السياق، قل بالعربية: "لا تتوفر لديّ معلومات كافية حول هذا الموضوع."
-
-[السياق المتاح]:
-{context}
-
-[سؤال المستخدم]:
-{question}
-
-[تذكير]: يجب أن تكون إجابتك الآن كاملة باللغة العربية فقط، ولا تستخدم الإنجليزية أو الفرنسية أبداً.
-
-[الإجابة بالعربية]:"""
-    else:
-        prompt = f"""You are an expert agricultural assistant for the Sania AgriSmart platform.
-
-YOUR TASKS:
-1. Identify the language of the user's QUESTION.
-2. Read the provided CONTEXT (which might be in English).
-3. Based ONLY on the CONTEXT, provide the appropriate treatment and recommended practices for the plant disease or symptom mentioned. Translate the relevant information from the CONTEXT into the language of the QUESTION.
-4. If the info is not in the CONTEXT, politely state that you do not know based on the provided data. Do NOT guess, and ensure this "I don't know" message is ALSO translated into the language of the QUESTION.
-
-CRITICAL INSTRUCTION ON LANGUAGE:
-No matter what language the CONTEXT is in, you MUST reply entirely in the EXACT SAME LANGUAGE as the user's QUESTION.
-- If QUESTION is in French -> Your response MUST be 100% in French.
-- If QUESTION is in English -> Your response MUST be 100% in English.
-
-CONTEXT:
-{context}
-
-QUESTION:
-{question}
-
-RESPONSE:"""
+    context = "\n\n---\n\n".join(r["content"][:chunk_limit] for r in retrieved)
+    history_text = _format_history(history)
+    if history_text:
+        context = f"[RECENT CONVERSATION]\n{history_text}\n\n[RETRIEVED CONTEXT]\n{context}"
+    system, prompt = _build_prompt(question, context)
 
     try:
-        response = httpx.post(
-            f"{settings.OLLAMA_BASE_URL}/api/generate",
-            json={
-                "model": settings.OLLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False,
-            },
-            timeout=120.0,
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        return {
-            "answer": data.get("response", "").strip(),
-            "sources": [
-                {
-                    "rank": item["rank"],
-                    "score": item["score"],
-                    "source": item["source"],
-                    "filename": item["filename"],
-                    "chunk_id": item["chunk_id"],
-                }
-                for item in retrieved
-            ]
+        answer = _call_llm(prompt, system=system, max_tokens=max_tokens)
+    except Exception as e:
+        logger.error(f"LLM RAG call failed: {e}")
+        raise RuntimeError(f"Token Factory LLM error: {e}") from e
+    answer = _sanitize_answer(answer, question, arabic)
+
+    _append_message(db, conv_id, "user", question)
+    _append_message(db, conv_id, "assistant", answer)
+
+    return {
+        "answer": answer,
+        "conversation_id": conv_id,
+        "sources": [
+            {
+                "rank":     r["rank"],
+                "score":    r["score"],
+                "source":   r["source"],
+                "filename": r["filename"],
+                "chunk_id": r["chunk_id"],
+            }
+            for r in retrieved
+        ],
+    }
+
+
+# ── Streaming ─────────────────────────────────────────────────────────────────
+def stream_query_rag(question: str) -> Generator[str, None, None]:
+    """
+    Version streaming de query_rag.
+    Yield les tokens texte, puis envoie les sources en fin de stream
+    sous la forme : \\n\\n__SOURCES__<json>
+    
+    Usage FastAPI :
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(stream_query_rag(q), media_type="text/plain; charset=utf-8")
+    """
+    # --- Salutation ---
+    if _is_greeting(question):
+        system, prompt = _build_greeting_prompt(question)
+        yield from _stream_llm(prompt, system=system, max_tokens=120)
+        return
+
+    # --- RAG technique ---
+    arabic = _is_arabic(question)
+    top_k       = 5
+    chunk_limit = 250 if arabic else 400
+    max_tokens  = 350 if arabic else 600
+
+    retrieved = _retrieve(question, top_k=top_k)
+    if not retrieved:
+        yield "La base de connaissances est vide. Veuillez indexer des documents."
+        return
+
+    context = "\n\n---\n\n".join(r["content"][:chunk_limit] for r in retrieved)
+    system, prompt = _build_prompt(question, context)
+
+    yield from _stream_llm(prompt, system=system, max_tokens=max_tokens)
+
+    # Envoyer les sources à la fin (le frontend parse après __SOURCES__)
+    sources = [
+        {
+            "rank":     r["rank"],
+            "score":    r["score"],
+            "source":   r["source"],
+            "filename": r["filename"],
         }
-    except httpx.HTTPError as e:
-        logger.error(f"Ollama request failed: {e}")
-        raise RuntimeError(f"Ollama service error: {e}") from e
+        for r in retrieved
+    ]
+    yield f"\n\n__SOURCES__{json.dumps(sources, ensure_ascii=False)}"

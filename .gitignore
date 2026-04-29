@@ -29,3 +29,4 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+backend/app/models/unsloth.Q4_K_M.gguf

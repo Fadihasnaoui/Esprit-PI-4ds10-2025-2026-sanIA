@@ -33,7 +33,13 @@ class Settings(BaseSettings):
     # AI & LLM — Ollama + RAG
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3")
+    OLLAMA_MODEL_DARIJA: str = os.getenv("OLLAMA_MODEL_DARIJA", "llama3-darija")
     RAG_DATA_DIR: str = os.getenv("RAG_DATA_DIR", "/app/rag_data")
+    
+    # Token Factory API
+    TOKEN_FACTORY_API_KEY: str = os.getenv("TOKEN_FACTORY_API_KEY", "sk-d926bf841d284b5b96a07d2622d936e6")
+    TOKEN_FACTORY_BASE_URL: str = os.getenv("TOKEN_FACTORY_BASE_URL", "https://tokenfactory.esprit.tn/api")
+    TOKEN_FACTORY_MODEL: str = os.getenv("TOKEN_FACTORY_MODEL", "hosted_vllm/Llama-3.1-70B-Instruct")
     
     # IoT (MQTT for Sensors/Valves)
     MQTT_BROKER_URL: str = os.getenv("MQTT_BROKER_URL", "mqtt://localhost:1883")

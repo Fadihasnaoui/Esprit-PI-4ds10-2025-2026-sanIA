@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import FieldsDashboard from './pages/FieldsDashboard';
 import AnimalsDashboard from './pages/AnimalsDashboard';
 import Analytics from './pages/Analytics';
+import Chat from './pages/Chat';
 import KnowledgeBase from './components/KnowledgeBase';
 import AIAssistant from './components/AIAssistant';
 import { authService } from './services/api';
@@ -117,9 +118,15 @@ function App() {
         {currentPage === 'knowledge' && (
           <KnowledgeBase />
         )}
+
+        {currentPage === 'chat' && (
+          <Chat />
+        )}
       </main>
 
-      <AIAssistant isOpen={showAssistant} setIsOpen={setShowAssistant} />
+      {currentPage !== 'chat' && (
+        <AIAssistant isOpen={showAssistant} setIsOpen={setShowAssistant} />
+      )}
 
       {/* Premium Footer */}
       <footer style={{

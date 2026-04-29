@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals, rag
+from app.services import rag_service
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,6 +25,11 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"message": "Welcome to Sania AgriSmart API"}
+
+
+@app.on_event("startup")
+def startup_event():
+    rag_service.init_rag_conversation_tables()
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(animals.router, prefix=f"{settings.API_V1_STR}/animals", tags=["livestock"])

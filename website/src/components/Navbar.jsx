@@ -13,6 +13,7 @@ const Navbar = ({ onNavigate, currentPage }) => {
 
   const links = [
     { id: 'home', label: 'Accueil', emoji: '🏡' },
+    { id: 'chat', label: 'Chat IA', emoji: '✨' },
     { id: 'fields', label: 'Parcelles', emoji: '🌾' },
     { id: 'animals', label: 'Cheptel', emoji: '🐄' },
     { id: 'analytics', label: 'Analytics', emoji: '📊' },

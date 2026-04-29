@@ -14,10 +14,11 @@ A production-style smart agriculture dashboard with role-based access control, r
 
 ### Prerequisites
 - Docker & Docker Compose
-
+Cooperative Admin: admin@agrismart.tn / Admin123!
+Can manage all farms, view global analytics, and register new cooperatives.
+Farmer (Mohamed): farmer@agrismart.tn / Farmer123!
+Manages his own fields, sensors, livestock, and receives direct IA alerts.
 ### Run the application
 ```bash
 docker-compose up --build
 ```
-#run backend :python -m uvicorn app.main:app --reload         /// python run.py
-#run frontend :npm run dev
