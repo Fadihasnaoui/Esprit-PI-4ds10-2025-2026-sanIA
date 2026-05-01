@@ -34,7 +34,12 @@ Thumbs.db
 Desktop.ini
 
 # Specific project exclusions
-severity_analysis/
+# Severity ML: track notebooks/scripts/artifacts but not huge archives or training dumps
+severity_analysis/archive*/
+severity_analysis/__pycache__/
+severity_analysis/*.broken-bak
+severity_analysis/**/*.keras
+severity_analysis/**/*.h5
 crop_disease_detection/models/
 crop_disease_detection/data/
 crop_disease_detection/reports/logs/
