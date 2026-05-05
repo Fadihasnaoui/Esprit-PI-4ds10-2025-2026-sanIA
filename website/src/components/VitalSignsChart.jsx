@@ -1,242 +1,364 @@
-import React, { useEffect, useRef } from 'react';
-import { createChart } from 'lightweight-charts';
+import React, { useMemo } from 'react';
+import {
+  ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine,
+} from 'recharts';
 
-const VitalSignsChart = ({ telemetryData, selectedId, historicalData = [] }) => {
-    const liveChartRef = useRef();
-    const forecastChartRef = useRef();
-    
-    // Chart instances
-    const c1 = useRef(null);
-    const c2 = useRef(null);
-    
-    // Series
-    const hrSeriesRef = useRef(null);
-    const tSeriesRef = useRef(null);
-    const hrForecastRef = useRef(null);
-    const tForecastRef = useRef(null);
-    
-    // Data Accumulators
-    const hrDataRef = useRef([]);
-    const tDataRef = useRef([]);
-    const lastTimeRef = useRef(0);
+const ACTIVITY_COLOR = {
+  EATING:     '#fbbf24',
+  WALKING:    '#34d399',
+  RUNNING:    '#f87171',
+  RUMINATING: '#60a5fa',
+  RESTING:    '#818cf8',
+};
 
-    // AI Prediction Generator (Forces REAL Device Time)
-    const updateForecasts = () => {
-        if (!hrForecastRef.current || !tForecastRef.current) return;
-        if (hrDataRef.current.length < 3 || tDataRef.current.length < 3) return;
-        
-        const computeLinReg = (dataArray) => {
-            const n = Math.min(dataArray.length, 20);
-            const recent = dataArray.slice(-n);
-            let sumX = 0, sumX2 = 0, sumY = 0, sumXY = 0;
-            
-            for (let i = 0; i < n; i++) {
-                sumX += i;
-                sumX2 += i * i;
-                sumY += recent[i].value;
-                sumXY += i * recent[i].value;
-            }
-            
-            const denom = (n * sumX2 - sumX * sumX) || 1;
-            const m = (n * sumXY - sumX * sumY) / denom;
-            const b = (sumY - m * sumX) / n;
-            
-            // Forçage de l'heure locale (Tunisie = UTC+1 = 3600 sec)
-            const nowSecs = Math.floor(Date.now() / 1000) + 3600;
-            const predictions = [{ time: nowSecs, value: recent[recent.length - 1].value }];
-            
-            for (let i = 1; i <= 10; i++) {
-                let val = (m * (n - 1 + i)) + b;
-                val += (Math.random() - 0.5) * 1.5;
-                predictions.push({ time: nowSecs + (i * 60), value: parseFloat(val.toFixed(2)) });
-            }
-            return predictions;
-        };
+const ACTIVITY_LABEL = {
+  EATING: 'Repas', WALKING: 'Marche', RUNNING: 'Course',
+  RUMINATING: 'Rumination', RESTING: 'Repos',
+};
 
-        const fHr = computeLinReg(hrDataRef.current);
-        const fTemp = computeLinReg(tDataRef.current);
+/* Normal vital ranges per species (backend already filters, this is for chart annotation) */
+const SPECIES_RANGES = {
+  Bovin:  { tempLo: 37.5, tempHi: 40.5, bpmLo: 40,  bpmHi: 110 },
+  Ovin:   { tempLo: 38.0, tempHi: 41.0, bpmLo: 60,  bpmHi: 125 },
+  Caprin: { tempLo: 38.0, tempHi: 41.5, bpmLo: 60,  bpmHi: 130 },
+  Cheval: { tempLo: 37.0, tempHi: 39.5, bpmLo: 24,  bpmHi: 64  },
+};
 
-        hrForecastRef.current.setData(fHr);
-        tForecastRef.current.setData(fTemp);
-        c2.current?.timeScale().fitContent();
-    };
-
-    useEffect(() => {
-        if (!liveChartRef.current || !forecastChartRef.current) return;
-
-        // --- CHART 1 : LIVE DATA ---
-        c1.current = createChart(liveChartRef.current, {
-            width: liveChartRef.current.clientWidth,
-            height: 180,
-            layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#c9d1d9' },
-            grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
-            timeScale: { timeVisible: true, secondsVisible: true },
-            leftPriceScale: {
-                visible: true,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-            },
-            rightPriceScale: {
-                visible: true,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-            },
-        });
-        hrSeriesRef.current = c1.current.addLineSeries({ color: '#f85149', lineWidth: 2, priceScaleId: 'right', title: 'BPM Réel' });
-        tSeriesRef.current = c1.current.addLineSeries({ color: '#388bfd', lineWidth: 2, priceScaleId: 'left', title: 'Temp (°C) Réel' });
-
-        // --- CHART 2 : AI FORECAST ---
-        c2.current = createChart(forecastChartRef.current, {
-            width: forecastChartRef.current.clientWidth,
-            height: 160,
-            layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#86efac' }, // Greenish text for IA
-            grid: { vertLines: { color: 'rgba(134, 239, 172, 0.05)' }, horzLines: { color: 'rgba(134, 239, 172, 0.05)' } },
-            timeScale: { timeVisible: true, secondsVisible: true },
-            leftPriceScale: {
-                visible: true,
-                borderColor: 'rgba(134, 239, 172, 0.1)',
-            },
-            rightPriceScale: {
-                visible: true,
-                borderColor: 'rgba(134, 239, 172, 0.1)',
-            },
-        });
-        // Both lines dashed in the forecast chart
-        hrForecastRef.current = c2.current.addLineSeries({ color: '#f85149', lineWidth: 2, lineStyle: 2, priceScaleId: 'right', title: 'BPM (Prédictif)' });
-        tForecastRef.current = c2.current.addLineSeries({ color: '#388bfd', lineWidth: 2, lineStyle: 2, priceScaleId: 'left', title: 'Temp (Prédictif)' });
-
-        const handleResize = () => {
-            if (c1.current && liveChartRef.current) c1.current.applyOptions({ width: liveChartRef.current.clientWidth });
-            if (c2.current && forecastChartRef.current) c2.current.applyOptions({ width: forecastChartRef.current.clientWidth });
-        };
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            c1.current?.remove();
-            c2.current?.remove();
-        };
-    }, []);
-
-    // Handle Historical Data Input
-    useEffect(() => {
-        if (!hrSeriesRef.current || !tSeriesRef.current) return;
-        if (historicalData.length > 0) {
-            
-            // 1. Calculate time drift between backend Simulator DB and Real Now
-            let maxDbTime = 0;
-            historicalData.forEach(d => {
-                const t = Math.floor(new Date(d.time).getTime() / 1000);
-                if (t > maxDbTime) maxDbTime = t;
-            });
-            const realNowSecs = Math.floor(Date.now() / 1000) + 3600; // Local Time (Tunisia)
-            const timeShift = maxDbTime > 0 ? (realNowSecs - maxDbTime) : 0; 
-            // This pulls all the 12:00 static database data to be plotted RIGHT NOW on the live axis!
-
-            const seenTimes = new Set();
-            const processPoints = (key) => historicalData
-                .map(d => ({ 
-                    time: Math.floor(new Date(d.time).getTime() / 1000) + timeShift, 
-                    value: d[key] 
-                }))
-                .filter(p => {
-                    if (isNaN(p.time) || p.value == null || p.time === 0 || seenTimes.has(p.time)) return false;
-                    seenTimes.add(p.time);
-                    return true;
-                }).sort((a,b) => a.time - b.time);
-            
-            const hrPoints = processPoints('heart_rate');
-            seenTimes.clear();
-            const tPoints = historicalData
-                .map(d => ({ 
-                    time: Math.floor(new Date(d.time).getTime() / 1000) + timeShift, 
-                    value: d.temperature_c != null ? d.temperature_c : null  // ONLY temperature_c, never weight_kg
-                })) 
-                .filter(p => p.value !== null && !isNaN(p.time) && p.value > 20 && p.value < 50) // Bovine range 20-50°C
-                .sort((a,b) => a.time - b.time);
-                
-            const unqT = [];
-            const tSet = new Set();
-            for(let p of tPoints) { if(!tSet.has(p.time)) { tSet.add(p.time); unqT.push(p); } }
-
-            hrSeriesRef.current.setData(hrPoints);
-            tSeriesRef.current.setData(unqT);
-
-            if (hrPoints.length > 0) lastTimeRef.current = hrPoints[hrPoints.length - 1].time;
-            
-            hrDataRef.current = hrPoints;
-            tDataRef.current = unqT;
-            c1.current?.timeScale().fitContent();
-            updateForecasts();
-        } else {
-            hrSeriesRef.current.setData([]);
-            tSeriesRef.current.setData([]);
-            hrDataRef.current = [];
-            tDataRef.current = [];
-            lastTimeRef.current = 0;
-            updateForecasts();
-        }
-    }, [historicalData, selectedId]);
-
-    // Handle Live Websocket Injection
-    useEffect(() => {
-        if (selectedId && telemetryData[selectedId] && hrSeriesRef.current) {
-            const latest = telemetryData[selectedId];
-            if (!latest.time || !latest.heart_rate) return;
-
-            try {
-                // Ignore the backend's "simulated" date completely to prevent "temps passé" bugs
-                // Force pure real system time plot (+1 hour for Tunisia)
-                const timeSecs = Math.floor(Date.now() / 1000) + 3600;
-                
-                if (timeSecs <= lastTimeRef.current) return;
-                lastTimeRef.current = timeSecs;
-
-                const hrPoint = { time: timeSecs, value: latest.heart_rate };
-                hrSeriesRef.current.update(hrPoint);
-                hrDataRef.current.push(hrPoint);
-                if (hrDataRef.current.length > 100) hrDataRef.current.shift();
-                
-                const tVal = (latest.temperature_c != null && latest.temperature_c > 20 && latest.temperature_c < 50)
-                    ? latest.temperature_c
-                    : null; // ONLY real temperature, reject weight values
-                if (tVal !== null && tSeriesRef.current) {
-                    const tempPoint = { time: timeSecs, value: tVal };
-                    tSeriesRef.current.update(tempPoint);
-                    tDataRef.current.push(tempPoint);
-                    if (tDataRef.current.length > 100) tDataRef.current.shift();
-                }
-
-                updateForecasts();
-            } catch (e) {
-                console.warn("Chart update failed:", e);
-            }
-        }
-    }, [telemetryData, selectedId]);
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-            
-            {/* ENCART 1 : TEMPS RÉEL */}
-            <div style={{ position: 'relative', width: '100%', height: '180px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: 5, left: 10, zIndex: 10, fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                    <span style={{ color: '#388bfd' }}>Temp (°C)</span> & <span style={{ color: '#f85149' }}>BPM</span> (HISTORIQUE ET DIRECT)
-                </div>
-                <div ref={liveChartRef} style={{ width: '100%', height: '100%' }} />
-            </div>
-
-            {/* ENCART 2 : PRÉVISION IA (INDÉPENDANT) */}
-            <div style={{ position: 'relative', width: '100%', height: '160px', background: 'linear-gradient(180deg, rgba(134, 239, 172, 0.05) 0%, rgba(0,0,0,0.1) 100%)', borderRadius: '12px', border: '1px solid rgba(134, 239, 172, 0.2)', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: 5, left: 10, zIndex: 10, fontSize: '0.7rem', color: '#86efac', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '6px', height: '6px', background: '#86efac', borderRadius: '50%', animation: 'pulse 2s infinite' }}></div>
-                    MODULE IA - PROJECTION COURT TERME (FUTUR)
-                </div>
-                <div ref={forecastChartRef} style={{ width: '100%', height: '100%', marginTop: '5px' }} />
-            </div>
-            
-            <style>{`
-                @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; box-shadow: 0 0 5px #86efac; } 100% { opacity: 0.3; } }
-            `}</style>
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  const act = payload[0]?.payload?.activity;
+  return (
+    <div style={{
+      background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: '8px', padding: '8px 12px', fontSize: '0.68rem',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+    }}>
+      <div style={{ color: '#94a3b8', marginBottom: '4px', fontSize: '0.6rem' }}>{label}</div>
+      {act && (
+        <div style={{
+          color: ACTIVITY_COLOR[act] || '#fff', fontSize: '0.6rem',
+          fontWeight: 700, marginBottom: '5px', letterSpacing: '1px',
+        }}>
+          ◉ {ACTIVITY_LABEL[act] || act}
         </div>
-    );
+      )}
+      {payload.map((p, i) => p.value != null && (
+        <div key={i} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+          <span style={{ opacity: 0.7 }}>{p.name}</span>
+          <strong>
+            {typeof p.value === 'number'
+              ? (p.name.includes('°') ? p.value.toFixed(2) : Math.round(p.value))
+              : p.value}
+          </strong>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ForecastTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: '#0a1628', border: '1px solid rgba(134,239,172,0.2)',
+      borderRadius: '8px', padding: '8px 12px', fontSize: '0.68rem',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+    }}>
+      <div style={{ color: '#86efac80', marginBottom: '4px', fontSize: '0.6rem' }}>{label}</div>
+      {payload.map((p, i) => p.value != null && (
+        <div key={i} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+          <span style={{ opacity: 0.7 }}>{p.name}</span>
+          <strong>
+            {typeof p.value === 'number'
+              ? (p.name.includes('°') ? p.value.toFixed(2) : Math.round(p.value))
+              : p.value}
+          </strong>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ActivityDot = (props) => {
+  const { cx, cy, payload } = props;
+  if (!cx || !cy || payload?.isForecast) return null;
+  const color = ACTIVITY_COLOR[payload?.activity] || 'rgba(255,255,255,0.2)';
+  const isLive = payload?.isLive;
+  return (
+    <circle
+      cx={cx} cy={cy}
+      r={isLive ? 5 : 2.5}
+      fill={color}
+      stroke={isLive ? '#fff' : 'none'}
+      strokeWidth={isLive ? 1.5 : 0}
+    />
+  );
+};
+
+const VitalSignsChart = ({ telemetryData, selectedId, historicalData = [], forecastData = [], species }) => {
+
+  /* ── Historical data (chronological, last 50 points) ───────────── */
+  const histData = useMemo(() => {
+    if (!historicalData.length) return [];
+    return [...historicalData]
+      .reverse()           // DB returns newest-first; reverse to chronological
+      .slice(-50)
+      .map((d) => {
+        const t = new Date(d.time);
+        return {
+          label: t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          bpm:   Number.isFinite(d.heart_rate)   ? Math.round(d.heart_rate)          : null,
+          temp:  (d.temperature_c > 20 && d.temperature_c < 50) ? parseFloat(d.temperature_c.toFixed(2)) : null,
+          activity: d.activity_level || 'RESTING',
+        };
+      })
+      .filter(d => d.bpm !== null && d.temp !== null);
+  }, [historicalData]);
+
+  /* ── Add live WebSocket point ───────────────────────────────────── */
+  const chartData = useMemo(() => {
+    const live = selectedId ? telemetryData[selectedId] : null;
+    if (!live?.heart_rate) return histData;
+    return [
+      ...histData,
+      {
+        label:    '● DIRECT',
+        bpm:      Math.round(live.heart_rate),
+        temp:     (live.temperature_c > 20 && live.temperature_c < 50)
+                    ? parseFloat(live.temperature_c.toFixed(2)) : null,
+        activity: live.activity_level || 'RESTING',
+        isLive:   true,
+      },
+    ].slice(-50);
+  }, [histData, telemetryData, selectedId]);
+
+  /* ── Backend forecast data ──────────────────────────────────────── */
+  const fcData = useMemo(() => {
+    if (!forecastData.length) return [];
+    return forecastData.map((d, idx) => {
+      const bpm  = parseFloat((d.heart_rate_pred  || 0).toFixed(1));
+      const temp = parseFloat((d.temperature_c_pred || 0).toFixed(2));
+      return {
+        label:    `+${idx + 1}min`,
+        bpm,
+        bpmLo:    parseFloat((d.hr_min  || bpm - 2).toFixed(1)),
+        bpmHi:    parseFloat((d.hr_max  || bpm + 2).toFixed(1)),
+        temp,
+        tempLo:   parseFloat((d.t_min   || temp - 0.15).toFixed(2)),
+        tempHi:   parseFloat((d.t_max   || temp + 0.15).toFixed(2)),
+        isForecast: true,
+      };
+    });
+  }, [forecastData]);
+
+  /* ── Species reference lines ────────────────────────────────────── */
+  const ref = SPECIES_RANGES[species] || null;
+
+  /* ── Dynamic Y-axis domains ─────────────────────────────────────── */
+  const bpmDomain = useMemo(() => {
+    const vals = chartData.map(d => d.bpm).filter(Boolean);
+    if (!vals.length) return [ref?.bpmLo ?? 30, ref?.bpmHi ?? 130];
+    const lo = Math.max(0, Math.min(...vals) - 15);
+    const hi = Math.max(...vals) + 15;
+    return [Math.round(lo), Math.round(hi)];
+  }, [chartData, ref]);
+
+  const tempDomain = useMemo(() => {
+    const vals = chartData.map(d => d.temp).filter(Boolean);
+    if (!vals.length) return [ref?.tempLo ?? 37, ref?.tempHi ?? 42];
+    const lo = parseFloat((Math.min(...vals) - 0.6).toFixed(1));
+    const hi = parseFloat((Math.max(...vals) + 0.6).toFixed(1));
+    return [lo, hi];
+  }, [chartData, ref]);
+
+  const fcBpmDomain = useMemo(() => {
+    const vals = fcData.flatMap(d => [d.bpmLo, d.bpmHi]).filter(Boolean);
+    if (!vals.length) return ['auto', 'auto'];
+    return [Math.round(Math.min(...vals) - 5), Math.round(Math.max(...vals) + 5)];
+  }, [fcData]);
+
+  const fcTempDomain = useMemo(() => {
+    const vals = fcData.flatMap(d => [d.tempLo, d.tempHi]).filter(Boolean);
+    if (!vals.length) return ['auto', 'auto'];
+    return [parseFloat((Math.min(...vals) - 0.3).toFixed(1)), parseFloat((Math.max(...vals) + 0.3).toFixed(1))];
+  }, [fcData]);
+
+  const axisStyle = (color) => ({
+    fontSize: 8, axisLine: false, tickLine: false,
+    tick: { fill: color }, width: 38,
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+
+      {/* ── Chart 1 : Historical + Live ─────────────────────────────── */}
+      <div style={{
+        background: 'rgba(0,0,0,0.18)', borderRadius: '12px',
+        border: '1px solid rgba(255,255,255,0.05)', padding: '12px 4px 10px',
+      }}>
+        <div style={{ fontSize: '0.7rem', fontWeight: 700, marginBottom: '6px', paddingLeft: '10px' }}>
+          <span style={{ color: '#388bfd' }}>Temp (°C)</span>
+          <span style={{ color: '#475569' }}> · </span>
+          <span style={{ color: '#f85149' }}>BPM</span>
+          <span style={{ color: '#475569', fontWeight: 400 }}> — Historique & Direct</span>
+        </div>
+
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={190}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 45, left: 2, bottom: 0 }}>
+              <defs>
+                <linearGradient id="bpmGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#f85149" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#f85149" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+              <XAxis
+                dataKey="label" fontSize={8} axisLine={false} tickLine={false}
+                tick={{ fill: '#4b5563' }} interval="preserveStartEnd"
+              />
+              <YAxis yAxisId="bpm"  orientation="right" domain={bpmDomain}  unit=" bpm" {...axisStyle('#f8514990')} />
+              <YAxis yAxisId="temp" orientation="left"  domain={tempDomain} unit="°C"   {...axisStyle('#388bfd90')} tickCount={5} />
+              <Tooltip content={<CustomTooltip />} />
+
+              {/* Normal range reference lines for the selected species */}
+              {ref && <>
+                <ReferenceLine yAxisId="bpm"  y={ref.bpmHi}  stroke="#f8514930" strokeDasharray="4 2" />
+                <ReferenceLine yAxisId="bpm"  y={ref.bpmLo}  stroke="#4ade8030" strokeDasharray="4 2" />
+                <ReferenceLine yAxisId="temp" y={ref.tempHi} stroke="#f8514930" strokeDasharray="4 2" />
+                <ReferenceLine yAxisId="temp" y={ref.tempLo} stroke="#4ade8030" strokeDasharray="4 2" />
+              </>}
+
+              <Area
+                yAxisId="bpm" type="monotone" dataKey="bpm"
+                stroke="none" fill="url(#bpmGrad)" connectNulls
+              />
+              <Line
+                yAxisId="bpm" type="monotone" dataKey="bpm"
+                name="BPM" stroke="#f85149" strokeWidth={2}
+                dot={<ActivityDot />} activeDot={{ r: 5, fill: '#f85149' }}
+                connectNulls
+              />
+              <Line
+                yAxisId="temp" type="monotone" dataKey="temp"
+                name="Temp °C" stroke="#388bfd" strokeWidth={2}
+                dot={false} activeDot={{ r: 4, fill: '#388bfd' }}
+                connectNulls
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <div style={{ height: '190px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#475569', fontSize: '0.75rem' }}>
+            <div style={{ width: '32px', height: '32px', border: '2px solid #f85149', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            En attente de données télémétriques…
+          </div>
+        )}
+
+        {/* Activity legend */}
+        <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', paddingLeft: '10px', marginTop: '6px' }}>
+          {Object.entries(ACTIVITY_COLOR).map(([act, col]) => (
+            <div key={act} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.55rem', color: '#4b5563' }}>
+              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: col }} />
+              {ACTIVITY_LABEL[act]}
+            </div>
+          ))}
+          {ref && (
+            <div style={{ display: 'flex', gap: '0.6rem', marginLeft: 'auto', paddingRight: '4px' }}>
+              <div style={{ fontSize: '0.5rem', color: '#4ade8070' }}>— seuil bas</div>
+              <div style={{ fontSize: '0.5rem', color: '#f8514970' }}>— seuil haut</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Chart 2 : Backend IA Forecast ───────────────────────────── */}
+      <div style={{
+        background: 'linear-gradient(180deg, rgba(134,239,172,0.05) 0%, rgba(0,0,0,0.1) 100%)',
+        borderRadius: '12px', border: '1px solid rgba(134,239,172,0.2)',
+        padding: '12px 4px 10px',
+      }}>
+        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#86efac', marginBottom: '6px', paddingLeft: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '6px', height: '6px', background: '#86efac', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
+          MODULE IA — PROJECTION COURT TERME
+          <span style={{ fontWeight: 400, color: '#86efac60', fontSize: '0.6rem' }}>bandes = intervalle de confiance</span>
+        </div>
+
+        {fcData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={170}>
+            <ComposedChart data={fcData} margin={{ top: 8, right: 45, left: 2, bottom: 0 }}>
+              <defs>
+                <linearGradient id="bpmFcGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#f85149" stopOpacity={0.18} />
+                  <stop offset="100%" stopColor="#f85149" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="tempFcGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#388bfd" stopOpacity={0.18} />
+                  <stop offset="100%" stopColor="#388bfd" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(134,239,172,0.04)" />
+              <XAxis
+                dataKey="label" fontSize={8} axisLine={false} tickLine={false}
+                tick={{ fill: '#86efac50' }}
+              />
+              <YAxis yAxisId="bpm"  orientation="right" domain={fcBpmDomain}  unit=" bpm" {...axisStyle('#f8514970')} />
+              <YAxis yAxisId="temp" orientation="left"  domain={fcTempDomain} unit="°C"   {...axisStyle('#388bfd70')} tickCount={5} />
+              <Tooltip content={<ForecastTooltip />} />
+
+              {/* BPM confidence band */}
+              <Area
+                yAxisId="bpm" type="monotone" dataKey="bpmHi"
+                stroke="rgba(248,81,73,0.2)" strokeWidth={1} strokeDasharray="3 2"
+                fill="url(#bpmFcGrad)" connectNulls legendType="none"
+              />
+              <Area
+                yAxisId="bpm" type="monotone" dataKey="bpmLo"
+                stroke="rgba(248,81,73,0.2)" strokeWidth={1} strokeDasharray="3 2"
+                fill="rgba(0,0,0,0)" connectNulls legendType="none"
+              />
+
+              {/* Temp confidence band */}
+              <Area
+                yAxisId="temp" type="monotone" dataKey="tempHi"
+                stroke="rgba(56,139,253,0.2)" strokeWidth={1} strokeDasharray="3 2"
+                fill="url(#tempFcGrad)" connectNulls legendType="none"
+              />
+              <Area
+                yAxisId="temp" type="monotone" dataKey="tempLo"
+                stroke="rgba(56,139,253,0.2)" strokeWidth={1} strokeDasharray="3 2"
+                fill="rgba(0,0,0,0)" connectNulls legendType="none"
+              />
+
+              {/* Center prediction lines */}
+              <Line
+                yAxisId="bpm" type="monotone" dataKey="bpm"
+                name="BPM prédit" stroke="#f85149" strokeWidth={2.5} strokeDasharray="6 3"
+                dot={{ r: 3, fill: '#f85149', stroke: 'none' }}
+                activeDot={{ r: 5, fill: '#f85149' }} connectNulls
+              />
+              <Line
+                yAxisId="temp" type="monotone" dataKey="temp"
+                name="Temp °C" stroke="#388bfd" strokeWidth={2.5} strokeDasharray="6 3"
+                dot={{ r: 3, fill: '#388bfd', stroke: 'none' }}
+                activeDot={{ r: 5, fill: '#388bfd' }} connectNulls
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <div style={{ height: '170px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#86efac40', fontSize: '0.75rem' }}>
+            <div style={{ width: '28px', height: '28px', border: '2px solid #86efac40', borderTopColor: '#86efac', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            Calcul de projection IA en cours…
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes pulse { 0%,100% { opacity:0.3; } 50% { opacity:1; box-shadow:0 0 6px #86efac; } }
+        @keyframes spin  { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+      `}</style>
+    </div>
+  );
 };
 
 export default VitalSignsChart;

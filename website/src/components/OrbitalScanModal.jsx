@@ -541,7 +541,7 @@ const OrbitalScanModal = ({ isOpen, onClose, user, farmLocation, manualCaptureLo
                                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
                                             {results.orbital_intelligence.gemini_confirmed && (
                                                 <span style={{ fontSize: '0.6rem', background: 'rgba(0,255,179,0.12)', color: theme.accent, padding: '3px 9px', borderRadius: '8px', border: `1px solid ${theme.border}`, fontWeight: 700 }}>
-                                                    ✦ Gemini Vision
+                                                    
                                                 </span>
                                             )}
                                             {results.orbital_intelligence.yolo_detections > 0 && (

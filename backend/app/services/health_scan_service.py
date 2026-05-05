@@ -251,9 +251,9 @@ class HealthScanService:
                     "is_weak_detected": bcs.get("is_weak_detected", False)
                 },
                 "diagnosis": {
-                    "primary": diag.get("primary", HEALTH_CLASSES[0]),
-                    "all_diagnoses": diag.get("all_diagnoses", []),
-                    "action_plan": diag.get("action_plan", {"immediate": [], "short_term": [], "veterinary": []})
+                    "primary": diag.get("primary") or HEALTH_CLASSES[0],
+                    "all_diagnoses": diag.get("all_diagnoses") or [],
+                    "action_plan": diag.get("action_plan") or {"immediate": [], "short_term": [], "veterinary": []}
                 },
                 "features": feat,
                 "metadata": {

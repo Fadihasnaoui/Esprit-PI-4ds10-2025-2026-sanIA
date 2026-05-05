@@ -13,14 +13,29 @@ import LivestockMap from '../components/LivestockMap';
 import VitalSignsChart from '../components/VitalSignsChart';
 import OrbitalScanModal from '../components/OrbitalScanModal';
 import HealthScanModal from '../components/HealthScanModal';
-import HeatStressAlert from '../components/HeatStressAlert';
+import ManualVitalEntryModal from '../components/ManualVitalEntryModal';
 import MagneticCard from '../components/MagneticCard';
 import CommandPalette from '../components/CommandPalette';
 
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, Legend, Cell
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, Legend, Cell, LineChart, Line, ReferenceLine
 } from 'recharts';
+
+const VITAL_THRESHOLDS = {
+  Bovin:  { tempLow: 37.5, tempHigh: 40.5, hrLow: 40,  hrHigh: 110, tempNormal: '38.0–39.5°C', hrNormal: '48–84 BPM' },
+  Ovin:   { tempLow: 38.0, tempHigh: 41.0, hrLow: 60,  hrHigh: 125, tempNormal: '38.5–40.0°C', hrNormal: '70–90 BPM' },
+  Caprin: { tempLow: 38.0, tempHigh: 41.5, hrLow: 60,  hrHigh: 130, tempNormal: '38.5–40.5°C', hrNormal: '70–95 BPM' },
+  Cheval: { tempLow: 37.0, tempHigh: 39.5, hrLow: 24,  hrHigh: 64,  tempNormal: '37.5–38.5°C', hrNormal: '28–44 BPM' },
+};
+const DEFAULT_THRESHOLDS = { tempLow: 37.5, tempHigh: 40.5, hrLow: 40, hrHigh: 120, tempNormal: '37.5–40.5°C', hrNormal: '40–120 BPM' };
+const getThresholds = (species) => VITAL_THRESHOLDS[species] || DEFAULT_THRESHOLDS;
+const getVitalColor = (value, low, high) => {
+  if (value < low || value > high) return '#ef4444';
+  const margin = (high - low) * 0.15;
+  if (value < low + margin || value > high - margin) return '#f59e0b';
+  return '#4ade80';
+};
 
 /* ── Sania Core Utilities ── */
 const getSpeciesIcon = (species) => {
@@ -105,9 +120,137 @@ const ForageStockView = ({ animals }) => {
   );
 };
 
+/* ── THI Panel ── */
+const THI_SPECIES   = ['Bovin', 'Ovin', 'Caprin', 'Cheval'];
+const THI_ICONS     = { Bovin: '🐄', Ovin: '🐑', Caprin: '🐐', Cheval: '🐴' };
+const THI_THRESHOLDS_FE = { Bovin:[68,72,80,90], Ovin:[70,78,85,999], Caprin:[73,80,87,999], Cheval:[72,80,90,999] };
+
+function thiLevel(species, thi) {
+  const [t1,t2,t3] = THI_THRESHOLDS_FE[species] || [68,72,80];
+  if (thi < t1) return { label:'Normal',  color:'#4ade80', bg:'rgba(74,222,128,0.08)' };
+  if (thi < t2) return { label:'Légère',  color:'#facc15', bg:'rgba(250,204,21,0.08)' };
+  if (thi < t3) return { label:'Modérée', color:'#fb923c', bg:'rgba(251,146,60,0.08)' };
+  return           { label:'Sévère',  color:'#ef4444', bg:'rgba(239,68,68,0.08)' };
+}
+
+const THIPanel = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const load = () => {
+      livestockService.getTHIPanel()
+        .then(r => { setData(r.data); setLoading(false); })
+        .catch(() => setLoading(false));
+    };
+    load();
+    const iv = setInterval(load, 30 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (loading) return (
+    <div style={{ background:'rgba(0,0,0,0.2)', borderRadius:'16px', padding:'1.2rem', marginBottom:'1.5rem', border:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', gap:'10px', color:'var(--text-dim)', fontSize:'0.75rem' }}>
+      <Activity size={16} /> Chargement indice thermique Open-Meteo...
+    </div>
+  );
+  if (!data) return null;
+
+  const stressed = THI_SPECIES.filter(sp => data.per_species?.[sp]?.level !== 'Normal');
+  const chartData = (data.forecast || []).slice(0, 12).map(h => ({ time: h.time, THI: h.thi }));
+
+  return (
+    <div style={{ background:'rgba(0,10,30,0.5)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:'16px', padding:'1.2rem 1.5rem', marginBottom:'1.5rem', backdropFilter:'blur(12px)' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1rem', flexWrap:'wrap', gap:'0.6rem' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          <div style={{ background:'rgba(251,191,36,0.12)', padding:'8px', borderRadius:'10px', border:'1px solid rgba(251,191,36,0.3)' }}>
+            <TrendingUp size={18} color="#fbbf24" />
+          </div>
+          <div>
+            <div style={{ fontSize:'0.75rem', fontWeight:'900', color:'#fbbf24', textTransform:'uppercase', letterSpacing:'1.5px' }}>Indice Thermo-Hygrométrique (THI)</div>
+            <div style={{ fontSize:'0.6rem', color:'var(--text-dim)' }}>Open-Meteo Live · Formule USDA/NRC · 4 espèces</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:'1.2rem' }}>
+          <div style={{ textAlign:'right' }}>
+            <div style={{ fontSize:'0.5rem', color:'var(--text-muted)', textTransform:'uppercase' }}>Température</div>
+            <div style={{ fontSize:'1.1rem', fontWeight:'900', color:'#fff', fontFamily:'monospace' }}>{data.temp_now}°C</div>
+          </div>
+          <div style={{ textAlign:'right' }}>
+            <div style={{ fontSize:'0.5rem', color:'var(--text-muted)', textTransform:'uppercase' }}>Humidité</div>
+            <div style={{ fontSize:'1.1rem', fontWeight:'900', color:'#38bdf8', fontFamily:'monospace' }}>{data.rh_now}%</div>
+          </div>
+          <div style={{ textAlign:'right' }}>
+            <div style={{ fontSize:'0.5rem', color:'var(--text-muted)', textTransform:'uppercase' }}>THI Actuel</div>
+            <div style={{ fontSize:'1.1rem', fontWeight:'900', color:'#fbbf24', fontFamily:'monospace' }}>{data.thi_now}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.6rem', marginBottom:'1rem' }}>
+        {THI_SPECIES.map(sp => {
+          const spData = data.per_species?.[sp];
+          if (!spData) return null;
+          const lvl = thiLevel(sp, spData.thi);
+          return (
+            <div key={sp} style={{ background:lvl.bg, border:`1px solid ${lvl.color}40`, borderRadius:'12px', padding:'0.8rem 0.6rem', textAlign:'center' }}>
+              <div style={{ fontSize:'1.3rem', marginBottom:'2px' }}>{THI_ICONS[sp]}</div>
+              <div style={{ fontSize:'0.65rem', fontWeight:'900', color:'var(--text-bright)', marginBottom:'2px' }}>{sp}</div>
+              <div style={{ fontSize:'1.4rem', fontWeight:'900', color:lvl.color, fontFamily:'monospace', lineHeight:1 }}>{spData.thi}</div>
+              <div style={{ fontSize:'0.55rem', color:lvl.color, fontWeight:'700', marginTop:'2px', textTransform:'uppercase' }}>{lvl.label}</div>
+              <div style={{ marginTop:'6px', height:'3px', background:'rgba(255,255,255,0.08)', borderRadius:'3px', overflow:'hidden' }}>
+                <div style={{ width:`${Math.min(100,spData.thi)}%`, height:'100%', background:lvl.color, transition:'width 1s ease' }} />
+              </div>
+              <div style={{ fontSize:'0.45rem', color:'var(--text-muted)', marginTop:'3px' }}>Seuil : {THI_THRESHOLDS_FE[sp]?.[0]}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {chartData.length > 0 && (
+        <div style={{ marginBottom:'0.8rem' }}>
+          <div style={{ fontSize:'0.55rem', color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1px', marginBottom:'0.4rem' }}>Prévision THI — Prochaines 12h (Open-Meteo)</div>
+          <div style={{ height:'110px', marginLeft:'-8px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                <XAxis dataKey="time" fontSize={8} axisLine={false} tickLine={false} tick={{ fill:'var(--text-dim)' }} interval={2} />
+                <YAxis domain={['auto','auto']} fontSize={8} axisLine={false} tickLine={false} tick={{ fill:'var(--text-dim)' }} width={28} />
+                <Tooltip contentStyle={{ background:'#111827', border:'none', borderRadius:'8px', fontSize:'0.7rem' }} labelStyle={{ color:'#fbbf24' }} formatter={(v) => [`THI : ${v}`,'']} />
+                <ReferenceLine y={68} stroke="#4ade8060" strokeDasharray="4 2" label={{ value:'B:68', position:'right', fontSize:7, fill:'#4ade80' }} />
+                <ReferenceLine y={72} stroke="#facc1560" strokeDasharray="4 2" label={{ value:'B:72', position:'right', fontSize:7, fill:'#facc15' }} />
+                <ReferenceLine y={80} stroke="#fb923c60" strokeDasharray="4 2" label={{ value:'80',  position:'right', fontSize:7, fill:'#fb923c' }} />
+                <Line type="monotone" dataKey="THI" stroke="#fbbf24" strokeWidth={2} dot={false} activeDot={{ r:4, fill:'#fbbf24' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {stressed.length > 0 && (
+        <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'0.8rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+          <div style={{ fontSize:'0.6rem', color:'#fb923c', fontWeight:'900', textTransform:'uppercase', letterSpacing:'1px' }}>Recommandations vétérinaires — THI élevé</div>
+          {stressed.map(sp => {
+            const spData = data.per_species?.[sp];
+            if (!spData?.reco) return null;
+            const lvl = thiLevel(sp, spData.thi);
+            return (
+              <div key={sp} style={{ display:'flex', gap:'10px', alignItems:'flex-start', background:lvl.bg, border:`1px solid ${lvl.color}30`, borderRadius:'10px', padding:'8px 12px' }}>
+                <span style={{ fontSize:'1rem', flexShrink:0 }}>{THI_ICONS[sp]}</span>
+                <div>
+                  <div style={{ fontSize:'0.65rem', fontWeight:'900', color:lvl.color }}>{sp} — {lvl.label} (THI {spData.thi})</div>
+                  <div style={{ fontSize:'0.65rem', color:'var(--text-bright)', lineHeight:'1.5', marginTop:'2px' }}>{spData.reco}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ── Pro-Advanced Health Records Section ── */
-const HealthTabs = ({ animal, consumption, vaccinations, treatments, onHealthScan }) => {
-  const [activeTab, setActiveTab] = useState('metabolic');
+const HealthTabs = ({ animal, consumption, vaccinations, treatments, loading, onHealthScan, onManualEntry }) => {
+  const [activeTab, setActiveTab] = useState('medical'); // Default to 'medical' so the timeline shows immediately
 
   const [liveTemp, setLiveTemp] = useState(24.0);
   const [liveNdvi, setLiveNdvi] = useState(0.50);
@@ -116,12 +259,13 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments, onHealthSca
     const fetchEnv = () => {
       livestockService.getAnimalEnvironment(animal.id)
         .then(res => {
-          setLiveTemp(res.data.temperature);
-          setLiveNdvi(res.data.ndvi);
+          const t = parseFloat(res.data.temperature);
+          const n = parseFloat(res.data.ndvi);
+          if (!isNaN(t)) setLiveTemp(t);
+          if (!isNaN(n)) setLiveNdvi(n);
         })
         .catch(err => {
           console.error("Sania-Copernicus Sync Failed:", err);
-          // Graceful fallback to random walk if API is unavailable
           setLiveTemp(prev => parseFloat((prev + (Math.random() * 0.2 - 0.1)).toFixed(1)));
         });
     };
@@ -256,10 +400,30 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments, onHealthSca
           <Activity size={14} /> EXÉCUTER DIAGNOSTIC EXPERT
         </button>
 
-        <div style={{ marginTop: '0.6rem', display: 'flex', gap: '1rem' }}>
-           <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Météo : <span style={{ color: '#4ade80', fontWeight: 'bold' }}>{liveTemp.toFixed(1)}°C (Live)</span></div>
-           <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Santé herbe : <span style={{ color: '#4ade80', fontWeight: 'bold' }}>NDVI {liveNdvi.toFixed(2)}</span></div>
-        </div>
+        <button
+          onClick={() => onManualEntry && onManualEntry(animal)}
+          style={{
+            marginTop: '0.5rem',
+            width: '100%',
+            padding: '10px',
+            background: 'rgba(167, 139, 250, 0.15)',
+            border: '1px solid #a78bfa',
+            borderRadius: '10px',
+            color: '#fff',
+            fontSize: '0.7rem',
+            fontWeight: '900',
+            letterSpacing: '1px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.3s'
+          }}
+        >
+          <HeartPulse size={14} /> SAISIR MESURES (THERMOMÈTRE / BALANCE)
+        </button>
+
       </div>
 
       <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.2rem', background: 'rgba(255,255,255,0.03)', padding: '0.3rem', borderRadius: '12px' }}>
@@ -358,7 +522,12 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments, onHealthSca
              </button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-             {vaccinations?.length > 0 ? vaccinations.slice(0, 5).map((v, i) => (
+             {loading ? (
+                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <Activity className="animate-spin" size={20} color="var(--primary)" style={{ margin: '0 auto 10px' }} />
+                  <div style={{ fontSize: '0.7rem' }}>Chargement de l'historique...</div>
+                </div>
+             ) : vaccinations?.length > 0 ? vaccinations.slice(0, 5).map((v, i) => (
                <div key={v.id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', position: 'relative' }}>
                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: i === 0 ? 'var(--primary)' : 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.1)' }}></div>
@@ -386,19 +555,23 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments, onHealthSca
 };
 
 /* ── Animal Card Component ── */
-const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHealthScan }) => {
+const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHealthScan, onManualEntry }) => {
   const [expanded, setExpanded] = useState(false);
-  const [healthData, setHealthData] = useState({ consumption: [], vaccinations: [], treatments: [] });
+  const [healthData, setHealthData] = useState({ consumption: [], vaccinations: [], treatments: [], loading: false });
 
   useEffect(() => {
     if (expanded) {
+      setHealthData(prev => ({ ...prev, loading: true }));
       Promise.all([
         livestockService.getConsumption(animal.id),
         livestockService.getVaccinations(animal.id),
         livestockService.getTreatments(animal.id)
       ]).then(([c, v, t]) => {
-        setHealthData({ consumption: c.data, vaccinations: v.data, treatments: t.data });
-      }).catch(console.error);
+        setHealthData({ consumption: c.data, vaccinations: v.data, treatments: t.data, loading: false });
+      }).catch(err => {
+        console.error(err);
+        setHealthData(prev => ({ ...prev, loading: false }));
+      });
     }
   }, [expanded, animal.id]);
 
@@ -416,8 +589,20 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
   /* Pro Health Score Calculation — respects BCS diagnostic labels */
   const getHealthInfo = (t, manualStatus) => {
     const isSVI = t?.source === 'SATELLITE_SVI';
-    // Telemetry overrides for hard physiological anomalies
-    const telemetryCritique = t && (t.heart_rate > 100 || t.temperature_c > 39.5 || t.heart_rate < 40 || t.geofence_status === 'BREACH');
+    
+    // Telemetry overrides for hard physiological anomalies based on species
+    let telemetryCritique = false;
+    if (t) {
+      const sp = animal.species || 'Bovin';
+      if (sp === 'Cheval') {
+        telemetryCritique = (t.heart_rate > 60 || t.temperature_c > 39.0 || t.heart_rate < 24 || t.geofence_status === 'BREACH');
+      } else if (sp === 'Ovin' || sp === 'Caprin') {
+        telemetryCritique = (t.heart_rate > 120 || t.temperature_c > 40.5 || t.heart_rate < 60 || t.geofence_status === 'BREACH');
+      } else {
+        telemetryCritique = (t.heart_rate > 110 || t.temperature_c > 40.0 || t.heart_rate < 40 || t.geofence_status === 'BREACH');
+      }
+    }
+    
     if (telemetryCritique) {
       return { label: 'Critique', color: '#ef4444', isBlinking: true,
                status: t?.geofence_status === 'BREACH' ? 'HORS ZONE' : 'Critique' };
@@ -660,12 +845,14 @@ const AnimalCard = ({ animal, telemetry, delay, onEdit, onDelete, onPrint, onHea
       </div>
 
       {expanded && (
-        <HealthTabs 
-          animal={animal} 
-          consumption={healthData.consumption} 
-          vaccinations={healthData.vaccinations} 
-          treatments={healthData.treatments} 
+        <HealthTabs
+          animal={animal}
+          consumption={healthData.consumption}
+          vaccinations={healthData.vaccinations}
+          treatments={healthData.treatments}
+          loading={healthData.loading}
           onHealthScan={onHealthScan}
+          onManualEntry={onManualEntry}
         />
       )}
     </div>
@@ -700,6 +887,7 @@ const AnimalsDashboard = ({ user }) => {
   const [forceManualScan, setForceManualScan] = useState(false);
   const [farmData, setFarmData] = useState(null);
   const [healthScanAnimal, setHealthScanAnimal] = useState(null);
+  const [manualEntryAnimal, setManualEntryAnimal] = useState(null);
   const [mapCaptureLocation, setMapCaptureLocation] = useState(null);
 
   const fetchAnimals = () => {
@@ -902,7 +1090,18 @@ const AnimalsDashboard = ({ user }) => {
   const CRITIQUE_STATUSES = ['Critique', 'URGENCE', 'Malade'];
   const critiqueAnimals = animals.filter(a => {
     const t = telemetryData[a.id];
-    const telemetryFlag = t && (t.heart_rate > 100 || t.temperature_c > 39.5 || t.heart_rate < 40 || t.geofence_status === 'BREACH');
+    let telemetryFlag = false;
+    if (t) {
+      const sp = a.species || 'Bovin';
+      if (sp === 'Cheval') {
+        telemetryFlag = (t.heart_rate > 60 || t.temperature_c > 39.0 || t.heart_rate < 24 || t.geofence_status === 'BREACH');
+      } else if (sp === 'Ovin' || sp === 'Caprin') {
+        telemetryFlag = (t.heart_rate > 120 || t.temperature_c > 40.5 || t.heart_rate < 60 || t.geofence_status === 'BREACH');
+      } else {
+        // Default / Bovin
+        telemetryFlag = (t.heart_rate > 110 || t.temperature_c > 40.0 || t.heart_rate < 40 || t.geofence_status === 'BREACH');
+      }
+    }
     const diagnosticFlag = CRITIQUE_STATUSES.includes(a.status);
     return telemetryFlag || diagnosticFlag;
   });
@@ -983,10 +1182,8 @@ const AnimalsDashboard = ({ user }) => {
         </div>
       )}
 
-      {/* Live Heat-Stress Alert (OpenMeteo 72h THI forecast) — toutes les espèces de la ferme */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <HeatStressAlert speciesList={speciesList} />
-      </div>
+      {/* THI Panel (Open-Meteo live · 4 species · 12h forecast) */}
+      <THIPanel />
 
       {/* Top Banner Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
@@ -1193,6 +1390,7 @@ const AnimalsDashboard = ({ user }) => {
                   onDelete={(a) => { setAnimalToDelete(a); }}
                   onPrint={(a, t, h) => setPrintingAnimal({ animal: a, telemetry: t, healthData: h })}
                   onHealthScan={(a) => setHealthScanAnimal(a)}
+                  onManualEntry={(a) => setManualEntryAnimal(a)}
                 />
               </MagneticCard>
             );
@@ -1235,11 +1433,12 @@ const AnimalsDashboard = ({ user }) => {
                          {telemetryData[selectedAnimalId]?.activity_level || 'HORS-LIGNE'}
                        </div>
                     </div>
-                    <VitalSignsChart 
-                      telemetryData={telemetryData} 
-                      selectedId={selectedAnimalId} 
-                      historicalData={historicalTelemetry} 
-                      forecastData={forecastTelemetry} 
+                    <VitalSignsChart
+                      telemetryData={telemetryData}
+                      selectedId={selectedAnimalId}
+                      historicalData={historicalTelemetry}
+                      forecastData={forecastTelemetry}
+                      species={animals.find(a => a.id === selectedAnimalId)?.species}
                     />
                   </div>
                 ) : (
@@ -1380,7 +1579,8 @@ const AnimalsDashboard = ({ user }) => {
               };
 
               const payload = preparePayload(formData);
-              
+              delete payload.status;
+
               // For creation, we need farm_id
               if (!editingAnimal) {
                 payload.farm_id = user?.farm_id || (animals.length > 0 ? animals[0].farm_id : null);
@@ -1473,15 +1673,13 @@ const AnimalsDashboard = ({ user }) => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={{ fontSize: '0.65rem', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Etat de santé</label>
-                  <select 
-                    value={formData.status}
-                    onChange={e => setFormData({...formData, status: e.target.value})}
-                    style={modalInputStyle}
-                  >
-                    <option value="Sain" style={{ color: '#000' }}>Sain</option>
-                    <option value="Critique" style={{ color: '#000' }}>Critique</option>
-                    <option value="Quarantaine" style={{ color: '#000' }}>Quarantaine</option>
-                  </select>
+                  <div style={{ ...modalInputStyle, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'default', opacity: 0.7 }}>
+                    <span style={{ fontSize: '0.75rem' }}>🔬</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                      {editingAnimal ? (editingAnimal.status || 'Sain') : 'Sain'}
+                    </span>
+                    <span style={{ marginLeft: 'auto', fontSize: '0.55rem', color: '#a78bfa', fontStyle: 'italic' }}>Scan IA uniquement</span>
+                  </div>
                 </div>
                 <div>
                   <label style={{ fontSize: '0.65rem', color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Poids (Ref. kg)</label>
@@ -1719,7 +1917,14 @@ const AnimalsDashboard = ({ user }) => {
         isOpen={!!healthScanAnimal}
         onClose={() => setHealthScanAnimal(null)}
         animal={healthScanAnimal}
-        onStatusUpdated={() => fetchAnimals()}
+        onDiagnosisComplete={() => fetchAnimals()}
+      />
+      {/* Real Manual Vital Entry (thermometer / scale / stethoscope) */}
+      <ManualVitalEntryModal
+        isOpen={!!manualEntryAnimal}
+        animal={manualEntryAnimal}
+        onClose={() => setManualEntryAnimal(null)}
+        onSaved={() => fetchAnimals()}
       />
       {/* Command Palette (⌘K / Ctrl+K) */}
       <CommandPalette

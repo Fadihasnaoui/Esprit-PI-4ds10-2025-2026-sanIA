@@ -4,7 +4,7 @@ import { livestockService } from '../services/api';
 
 const URGENCY_COLORS = { haute: '#ef4444', moyenne: '#fbbf24', basse: '#4ade80' };
 
-const HealthScanModal = ({ isOpen, onClose, animal, onStatusUpdated }) => {
+const HealthScanModal = ({ isOpen, onClose, animal, onDiagnosisComplete }) => {
     const [status, setStatus] = useState('idle'); // idle | scanning | success | error
     const [previewUrl, setPreviewUrl] = useState(null);
     const [results, setResults] = useState(null);
@@ -65,11 +65,9 @@ const HealthScanModal = ({ isOpen, onClose, animal, onStatusUpdated }) => {
             } else {
                 setResults(data);
                 setStatus('success');
-                // Propagate the new medical status to the dashboard so the
-                // animal card reflects the diagnostic (Sain / Critique /
-                // Déshydraté / Sous-alimenté / Stressé) immediately.
-                if (data.animal && typeof onStatusUpdated === 'function') {
-                    onStatusUpdated(data.animal);
+                if (animal?.id && onDiagnosisComplete) {
+                    const label = data?.diagnosis?.primary?.label || 'Sain';
+                    onDiagnosisComplete(animal.id, label);
                 }
             }
         } catch (err) {
@@ -499,68 +497,72 @@ const HealthScanModal = ({ isOpen, onClose, animal, onStatusUpdated }) => {
                                 )}
 
                                 {/* PRO ACTION PLAN */}
-                                {results.diagnosis?.action_plan && (
-                                    <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(167, 139, 250, 0.05)', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                                        <label style={{ display: 'block', fontSize: '0.7rem', color: theme.accent, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '15px', fontWeight: 900 }}>
-                                            🛡️ Protocole d'Action Pro
-                                        </label>
-                                        
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            {/* Immediate Actions */}
-                                            {results.diagnosis.action_plan.immediate?.length > 0 && (
-                                                <div>
-                                                    <div style={{ fontSize: '0.65rem', color: theme.danger, fontWeight: 900, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <Zap size={10} /> ACTIONS IMMÉDIATES
-                                                    </div>
-                                                    {results.diagnosis.action_plan.immediate.map((item, i) => (
-                                                        <div key={i} style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.1)', marginBottom: '5px' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>{item.task}</div>
-                                                            <div style={{ fontSize: '0.65rem', color: theme.dim }}>{item.detail}</div>
+                                {results.diagnosis?.action_plan != null && (() => {
+                                    const ap = results.diagnosis.action_plan;
+                                    const hasContent = (ap.immediate?.length > 0) || (ap.short_term?.length > 0) || (ap.veterinary?.length > 0);
+                                    return (
+                                        <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(167, 139, 250, 0.05)', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
+                                            <label style={{ display: 'block', fontSize: '0.7rem', color: theme.accent, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '15px', fontWeight: 900 }}>
+                                                🛡️ Protocole d'Action Pro
+                                            </label>
+                                            {!hasContent && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'rgba(74, 222, 128, 0.08)', borderRadius: '10px', border: '1px solid rgba(74, 222, 128, 0.2)' }}>
+                                                    <CheckCircle size={16} color="#4ade80" />
+                                                    <span style={{ fontSize: '0.75rem', color: '#4ade80' }}>Aucune action urgente requise — animal en bonne santé.</span>
+                                                </div>
+                                            )}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                {ap.immediate?.length > 0 && (
+                                                    <div>
+                                                        <div style={{ fontSize: '0.65rem', color: theme.danger, fontWeight: 900, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <Zap size={10} /> ACTIONS IMMÉDIATES
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Short Term */}
-                                            {results.diagnosis.action_plan.short_term?.length > 0 && (
-                                                <div>
-                                                    <div style={{ fontSize: '0.65rem', color: theme.food, fontWeight: 900, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <Activity size={10} /> SUIVI COURT TERME
-                                                    </div>
-                                                    <div style={{ fontSize: '0.7rem', color: theme.text, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                        {results.diagnosis.action_plan.short_term.map((item, i) => (
-                                                            <div key={i} style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                                                                {typeof item === 'string' ? item : (
-                                                                    <>
-                                                                        <div style={{ fontWeight: 700 }}>{item.task}</div>
-                                                                        <div style={{ opacity: 0.6 }}>{item.detail}</div>
-                                                                    </>
-                                                                )}
+                                                        {ap.immediate.map((item, i) => (
+                                                            <div key={i} style={{ padding: '10px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.1)', marginBottom: '5px' }}>
+                                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>{item.task}</div>
+                                                                <div style={{ fontSize: '0.65rem', color: theme.dim }}>{item.detail}</div>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                </div>
-                                            )}
-
-                                            {/* Veterinary Actions */}
-                                            {results.diagnosis.action_plan.veterinary?.length > 0 && (
-                                                <div style={{ padding: '12px', background: 'rgba(167, 139, 250, 0.1)', borderRadius: '12px', border: `1px solid ${theme.accent}30` }}>
-                                                    <div style={{ fontSize: '0.65rem', color: theme.accent, fontWeight: 900, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <Shield size={12} /> PROTOCOLE VÉTÉRINAIRE
+                                                )}
+                                                {ap.short_term?.length > 0 && (
+                                                    <div>
+                                                        <div style={{ fontSize: '0.65rem', color: theme.food, fontWeight: 900, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <Activity size={10} /> SUIVI COURT TERME
+                                                        </div>
+                                                        <div style={{ fontSize: '0.7rem', color: theme.text, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {ap.short_term.map((item, i) => (
+                                                                <div key={i} style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                                                    {typeof item === 'string' ? item : (
+                                                                        <>
+                                                                            <div style={{ fontWeight: 700 }}>{item.task}</div>
+                                                                            <div style={{ opacity: 0.6 }}>{item.detail}</div>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#fff', fontStyle: 'italic', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                        {results.diagnosis.action_plan.veterinary.map((item, i) => (
-                                                            <div key={i} style={{ display: 'flex', gap: '8px' }}>
-                                                                <span>•</span>
-                                                                <span>{typeof item === 'string' ? item : `${item.task}: ${item.detail}`}</span>
-                                                            </div>
-                                                        ))}
+                                                )}
+                                                {ap.veterinary?.length > 0 && (
+                                                    <div style={{ padding: '12px', background: 'rgba(167, 139, 250, 0.1)', borderRadius: '12px', border: `1px solid ${theme.accent}30` }}>
+                                                        <div style={{ fontSize: '0.65rem', color: theme.accent, fontWeight: 900, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <Shield size={12} /> PROTOCOLE VÉTÉRINAIRE
+                                                        </div>
+                                                        <div style={{ fontSize: '0.7rem', color: '#fff', fontStyle: 'italic', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                            {ap.veterinary.map((item, i) => (
+                                                                <div key={i} style={{ display: 'flex', gap: '8px' }}>
+                                                                    <span>•</span>
+                                                                    <span>{typeof item === 'string' ? item : `${item.task}: ${item.detail}`}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
                                 {/* All Diagnoses */}
                                 {results.diagnosis?.all_diagnoses?.length > 1 && (

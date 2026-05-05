@@ -57,11 +57,15 @@ export const livestockService = {
   getTreatments: (animalId) => api.get(`/animals/${animalId}/treatments`),
   deleteTreatment: (logId) => api.delete(`/animals/treatments/${logId}`),
   getConsumption: (animalId, limit = 30) => api.get(`/animals/${animalId}/consumption?limit=${limit}`),
+  addConsumption: (animalId, data) => api.post(`/animals/${animalId}/consumption`, data),
+  deleteConsumption: (animalId, logId) => api.delete(`/animals/${animalId}/consumption/${logId}`),
+  submitManualVital: (animalId, data) => api.post(`/animals/${animalId}/telemetry/manual`, data),
   getZones: () => api.get('/animals/zones'),
   createZone: (data) => api.post('/animals/zones', data),
   deleteZone: (id) => api.delete(`/animals/zones/${id}`),
   getMyFarm: () => api.get('/animals/farm/me'),
   getAnimalEnvironment: (id) => api.get(`/animals/${id}/environment`),
+  getTHIPanel: () => api.get('/animals/thi'),
   performAutoScan: (lat, lon) => api.post(`/livestock_scans/orbital-scan?lat=${lat}&lon=${lon}`),
   performHealthScan: (file, species = 'Bovin', animalId = null) => {
     const formData = new FormData();

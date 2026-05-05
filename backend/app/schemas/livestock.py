@@ -69,7 +69,6 @@ class AnimalUpdate(BaseModel):
     gender: Optional[str] = None
     birth_date: Optional[datetime] = None
     entry_date: Optional[datetime] = None
-    status: Optional[str] = None
     weight_kg: Optional[float] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None

@@ -13,8 +13,8 @@ from .deps import get_current_active_user  # type: ignore
 from uuid import UUID
 from sqlalchemy import desc
 
-import os, re, random, uuid
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from ..models.all_models import Farm, Cooperative, Animal, VaccinationLog, TreatmentLog, User, UserRole, AnimalTelemetry, LivestockZone, ConsumptionLog  # type: ignore
 from ..services.weather_intelligence import weather_service
 from ..services.satellite_intelligence import satellite_service
@@ -83,11 +83,12 @@ def create_animal(animal_in: AnimalCreate, background_tasks: BackgroundTasks, db
         raise HTTPException(status_code=403, detail="Forbidden")
     data = animal_in.dict()
     data["farm_id"] = str(data["farm_id"])
+    data["status"] = "Sain"
     db_animal = Animal(**data)
     db.add(db_animal)
     db.commit()
     db.refresh(db_animal)
-    background_tasks.add_task(sync_to_sql_file) # Re-enabled: Persist changes to SQL
+    background_tasks.add_task(sync_to_sql_file)
     return db_animal
 
 @router.get("/zones", response_model=List[LivestockZoneInDB])
@@ -134,6 +135,96 @@ def get_my_farm(db: Session = Depends(get_db), current_user: User = Depends(get_
         "location": farm.location or "36.6042, 10.4921", # Fallback Ariane/Carthage pour la démo
         "owner": farm.owner_name
     }
+
+_THI_THRESHOLDS = {
+    "Bovin":  [
+        {"max": 68,  "level": "Normal",  "color": "#4ade80", "reco": None},
+        {"max": 72,  "level": "Légère",  "color": "#facc15", "reco": "Fournir de l'eau fraîche en continu. Éviter la surcharge des espaces."},
+        {"max": 80,  "level": "Modérée", "color": "#fb923c", "reco": "Ventilation forcée. Limiter les déplacements à 6h–9h. Augmenter la ration en eau de 20%."},
+        {"max": 90,  "level": "Sévère",  "color": "#ef4444", "reco": "Aspersion d'eau sur le corps. Rapprocher le bétail des zones ombragées. Contacter le vétérinaire."},
+        {"max": 999, "level": "Urgence", "color": "#dc2626", "reco": "Intervention vétérinaire immédiate. Mise à l'abri obligatoire. Risque de mortalité élevé."},
+    ],
+    "Ovin": [
+        {"max": 70,  "level": "Normal",  "color": "#4ade80", "reco": None},
+        {"max": 78,  "level": "Légère",  "color": "#facc15", "reco": "Tonte si pelage épais. Accès permanent à l'eau."},
+        {"max": 85,  "level": "Modérée", "color": "#fb923c", "reco": "Ombrage obligatoire. Déplacements uniquement en matinée."},
+        {"max": 999, "level": "Sévère",  "color": "#ef4444", "reco": "Pâturage interdit après 10h. Ventilation et aspersion."},
+    ],
+    "Caprin": [
+        {"max": 73,  "level": "Normal",  "color": "#4ade80", "reco": None},
+        {"max": 80,  "level": "Légère",  "color": "#facc15", "reco": "Renforcer l'apport en eau. Sel minéral en libre accès."},
+        {"max": 87,  "level": "Modérée", "color": "#fb923c", "reco": "Réduire les sorties aux heures chaudes. Augmenter la ration d'eau de 15%."},
+        {"max": 999, "level": "Sévère",  "color": "#ef4444", "reco": "Confinement à l'abri. Aspersion. Contrôle vétérinaire si halètement persistant."},
+    ],
+    "Cheval": [
+        {"max": 72,  "level": "Normal",  "color": "#4ade80", "reco": None},
+        {"max": 80,  "level": "Légère",  "color": "#facc15", "reco": "Réduire l'intensité d'entraînement. Augmenter l'abreuvement."},
+        {"max": 90,  "level": "Modérée", "color": "#fb923c", "reco": "Pas d'effort physique intense. Douche froide post-exercice. Électrolytes dans l'eau."},
+        {"max": 999, "level": "Sévère",  "color": "#ef4444", "reco": "Arrêt total de tout effort. Soins vétérinaires. Risque de coup de chaleur."},
+    ],
+}
+
+def _classify_thi(species: str, thi: float) -> dict:
+    thresholds = _THI_THRESHOLDS.get(species, _THI_THRESHOLDS["Bovin"])
+    for t in thresholds:
+        if thi < t["max"]:
+            return {"level": t["level"], "color": t["color"], "reco": t["reco"]}
+    return {"level": "Urgence", "color": "#7f1d1d", "reco": "Consultation vétérinaire immédiate."}
+
+@router.get("/thi")
+async def get_thi_panel(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    from ..services.weather_intelligence import weather_service
+    from ..core.location_utils import parse_coordinates
+
+    farm = db.query(Farm).filter(Farm.id == str(current_user.farm_id)).first()
+    if not farm:
+        farm = db.query(Farm).first()
+
+    lat = lon = None
+    if farm and farm.location:
+        coords = parse_coordinates(farm.location)
+        if coords:
+            lat, lon = coords
+
+    # Last resort: derive coordinates from any animal that has a known location
+    if lat is None or lon is None:
+        any_animal = (db.query(Animal)
+                        .filter(Animal.latitude.isnot(None), Animal.longitude.isnot(None))
+                        .first())
+        if any_animal:
+            lat, lon = any_animal.latitude, any_animal.longitude
+
+    if lat is None or lon is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Aucune position connue (ferme + animaux). Renseignez farm.location."
+        )
+
+    thi_data = await weather_service.get_thi_forecast(lat, lon)
+    if thi_data.get("thi_now") is None:
+        return {"temp_now": None, "rh_now": None, "thi_now": None,
+                "per_species": {}, "forecast": [], "stale": True,
+                "coordinates": {"lat": round(lat,6), "lon": round(lon,6)}}
+    species_list = ["Bovin", "Ovin", "Caprin", "Cheval"]
+    per_species = {}
+    for sp in species_list:
+        status = _classify_thi(sp, thi_data["thi_now"])
+        per_species[sp] = {"thi": thi_data["thi_now"], "level": status["level"],
+                           "color": status["color"], "reco": status["reco"]}
+    forecast = []
+    for h in thi_data["forecast"]:
+        row = {"time": h["time"], "temp": h["temp"], "rh": h["rh"], "thi": h["thi"]}
+        for sp in species_list:
+            st = _classify_thi(sp, h["thi"])
+            row[f"level_{sp}"] = st["level"]
+            row[f"color_{sp}"] = st["color"]
+        forecast.append(row)
+    return {"temp_now": thi_data["temp_now"], "rh_now": thi_data["rh_now"],
+            "thi_now": thi_data["thi_now"], "per_species": per_species,
+            "forecast": forecast, "coords": {"lat": round(lat,4), "lon": round(lon,4)}}
 
 @router.get("/{animal_id}", response_model=AnimalInDB)
 def get_animal(animal_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
@@ -191,70 +282,96 @@ def get_animal_telemetry(animal_id: UUID, limit: int = 100, db: Session = Depend
 @router.get("/{animal_id}/telemetry/forecast")
 def get_animal_telemetry_forecast(animal_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     """
-    Time Series Forecasting for Animal Metabolic Data.
-    Analyzes the last 30 readings to compute linear trend & confidence bands for future states.
+    Time-series forecast of vital signs using ARIMA(1,1,1) with empirical
+    95% confidence intervals. Falls back to Holt-Winters then naive trend if
+    ARIMA fails to converge. Output values are clamped to physiological bounds.
     """
     animal = db.query(Animal).filter(Animal.id == str(animal_id)).first()
     if not animal:
         raise HTTPException(status_code=404, detail="Animal not found")
     if current_user.role == UserRole.FARMER and animal.farm_id != current_user.farm_id:
         raise HTTPException(status_code=403, detail="Forbidden")
-        
+
     readings = db.query(AnimalTelemetry).filter(AnimalTelemetry.animal_id == str(animal_id))\
-                 .order_by(desc(AnimalTelemetry.time)).limit(30).all()
-                 
+                 .order_by(desc(AnimalTelemetry.time)).limit(60).all()
+
     if len(readings) < 5:
         return []
-        
-    readings.reverse() # chronological
-    
-    n = len(readings)
-    sum_x = sum(range(n))
-    sum_x2 = sum(x*x for x in range(n))
-    
-    sum_y_hr = sum(r.heart_rate for r in readings)
-    sum_xy_hr = sum(x * r.heart_rate for x, r in enumerate(readings))
-    m_hr = (n * sum_xy_hr - sum_x * sum_y_hr) / max((n * sum_x2 - sum_x**2), 1)
-    b_hr = (sum_y_hr - m_hr * sum_x) / n
-    
-    sum_y_t = sum(r.temperature_c for r in readings)
-    sum_xy_t = sum(x * r.temperature_c for x, r in enumerate(readings))
-    m_t = (n * sum_xy_t - sum_x * sum_y_t) / max((n * sum_x2 - sum_x**2), 1)
-    b_t = (sum_y_t - m_t * sum_x) / n
 
-    time_deltas = [(readings[i].time - readings[i-1].time).total_seconds() for i in range(1, n)]
-    avg_delta_sec = sum(time_deltas) / max(len(time_deltas), 1)
-    if avg_delta_sec <= 0: avg_delta_sec = 60 # fallback to 1 min if identical timestamps
-    
-    from datetime import timedelta
-    forecast = []
-    last_time = readings[-1].time
-    
-    for i in range(1, 10): # Predict next 9 steps
-        proj_time = last_time + timedelta(seconds=avg_delta_sec * i)
-        fut_x = n - 1 + i
-        
-        pred_hr = (m_hr * fut_x) + b_hr
-        pred_t = (m_t * fut_x) + b_t
-        
-        noise_hr = random.uniform(-1.0, 1.0)
-        noise_t = random.uniform(-0.1, 0.1)
-        
-        # Expanding confidence bands over time (uncertainty principle of predictions)
-        hr_conf = 1.0 + (i * 0.4)
-        t_conf = 0.1 + (i * 0.04)
-        
-        forecast.append({
-            "time": proj_time.isoformat(),
-            "heart_rate_pred": round(pred_hr + noise_hr, 1),
-            "hr_min": round(pred_hr - hr_conf, 1),
-            "hr_max": round(pred_hr + hr_conf, 1),
-            "temperature_c_pred": round(pred_t + noise_t, 2),
-            "t_min": round(pred_t - t_conf, 2),
-            "t_max": round(pred_t + t_conf, 2)
-        })
-        
-    return forecast
+    readings.reverse()
+
+    from ..services.forecast_service import forecast_vitals
+    return forecast_vitals(readings, species=animal.species or "Bovin", steps=9)
+
+
+# ── Manual vital readings (farmer-entered, no IoT required) ─────────────
+from pydantic import BaseModel as _PdBase, Field as _PdField
+from typing import Optional
+
+class ManualVitalReading(_PdBase):
+    """Farmer-entered measurement from a real instrument:
+       - heart_rate from stethoscope (BPM)
+       - temperature_c from rectal thermometer (°C)
+       - weight_kg from livestock scale
+       - activity_level: observed behaviour (RESTING/EATING/WALKING/RUMINATING/RUNNING)
+    """
+    heart_rate:     Optional[float] = _PdField(default=None, ge=10, le=400)
+    temperature_c:  Optional[float] = _PdField(default=None, ge=30, le=45)
+    weight_kg:      Optional[float] = _PdField(default=None, ge=0.5, le=2000)
+    activity_level: Optional[str]   = _PdField(default=None, max_length=32)
+    note:           Optional[str]   = _PdField(default=None, max_length=500)
+
+
+@router.post("/{animal_id}/telemetry/manual", response_model=AnimalTelemetryInDB)
+def submit_manual_vital_reading(
+    animal_id: UUID,
+    reading: ManualVitalReading,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Persist a real, farmer-measured vital reading. At least one of
+    heart_rate / temperature_c / weight_kg must be supplied. The reading
+    is timestamped server-side and used by the forecast model and the
+    intelligence daemon's anomaly checks.
+    """
+    if reading.heart_rate is None and reading.temperature_c is None and reading.weight_kg is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Au moins une mesure (FC, température, poids) doit être renseignée."
+        )
+
+    animal = db.query(Animal).filter(Animal.id == str(animal_id)).first()
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found")
+    if current_user.role == UserRole.FARMER and animal.farm_id != current_user.farm_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    activity = (reading.activity_level or "RESTING").upper()
+    if activity not in {"RESTING", "EATING", "WALKING", "RUMINATING", "RUNNING"}:
+        activity = "RESTING"
+
+    row = AnimalTelemetry(
+        animal_id      = str(animal_id),
+        time           = datetime.now(timezone.utc),
+        heart_rate     = float(reading.heart_rate    or 0),
+        temperature_c  = float(reading.temperature_c or 0),
+        weight_kg      = float(reading.weight_kg     or animal.weight_kg or 0),
+        activity_level = activity,
+        latitude       = animal.latitude  or 0.0,
+        longitude      = animal.longitude or 0.0,
+    )
+    db.add(row)
+
+    # If a weight is supplied, also update the animal's reference weight so
+    # the price calculator sees the latest measurement.
+    if reading.weight_kg:
+        animal.weight_kg = float(reading.weight_kg)
+
+    db.commit()
+    db.refresh(row)
+    return row
+
 
 # --- Vaccination Logs ---
 @router.post("/{animal_id}/vaccinations", response_model=VaccinationLogInDB)
@@ -321,40 +438,118 @@ def get_consumption(animal_id: UUID, limit: int = 30, db: Session = Depends(get_
     return db.query(ConsumptionLog).filter(ConsumptionLog.animal_id == str(animal_id))\
              .order_by(desc(ConsumptionLog.date)).limit(limit).all()
 
-@router.get("/{animal_id}/environment")
-async def get_animal_environment(animal_id: UUID, db: Session = Depends(get_db)):
-    """Fetches real-time weather and NDVI for an animal's current location."""
+
+class ConsumptionEntry(_PdBase):
+    """Daily consumption record entered by the farmer (real measurements)."""
+    water_liters: float = _PdField(ge=0, le=500)
+    food_kg:      float = _PdField(ge=0, le=200)
+    date:         Optional[datetime] = None
+    note:         Optional[str] = _PdField(default=None, max_length=500)
+
+
+@router.post("/{animal_id}/consumption", response_model=ConsumptionLogInDB)
+def add_consumption(
+    animal_id: UUID,
+    entry: ConsumptionEntry,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Log a real, farmer-measured daily consumption (water + feed).
+    No automatic fake-data generation; one log per real observation."""
     animal = db.query(Animal).filter(Animal.id == str(animal_id)).first()
     if not animal:
         raise HTTPException(status_code=404, detail="Animal not found")
-        
-    # Get last telemetry for location
+    if current_user.role == UserRole.FARMER and animal.farm_id != current_user.farm_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    log = ConsumptionLog(
+        animal_id    = str(animal_id),
+        water_liters = round(float(entry.water_liters), 2),
+        food_kg      = round(float(entry.food_kg), 2),
+        date         = entry.date or datetime.utcnow(),
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
+
+@router.delete("/{animal_id}/consumption/{log_id}")
+def delete_consumption(
+    animal_id: UUID, log_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    animal = db.query(Animal).filter(Animal.id == str(animal_id)).first()
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found")
+    if current_user.role == UserRole.FARMER and animal.farm_id != current_user.farm_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    log = (db.query(ConsumptionLog)
+             .filter(ConsumptionLog.id == str(log_id),
+                     ConsumptionLog.animal_id == str(animal_id))
+             .first())
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    db.delete(log)
+    db.commit()
+    return {"status": "success"}
+
+@router.get("/{animal_id}/environment")
+async def get_animal_environment(animal_id: UUID, db: Session = Depends(get_db)):
+    """Fetches real-time weather and NDVI for an animal's current location.
+
+    Coordinate resolution cascade (real, no hardcoded fallback):
+      1. Latest telemetry reading (most recent IoT/satellite fix)
+      2. Animal's stored lat/lon (manually set)
+      3. Farm centroid (parsed from farm.location)
+    If none yields coordinates, returns 422 — better to surface the missing
+    data than to silently report Ariana weather to a Sahara animal.
+    """
+    animal = db.query(Animal).filter(Animal.id == str(animal_id)).first()
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found")
+
     latest_telemetry = db.query(AnimalTelemetry).filter(AnimalTelemetry.animal_id == str(animal_id))\
                          .order_by(desc(AnimalTelemetry.time)).first()
-                         
-    lat = latest_telemetry.latitude if latest_telemetry and latest_telemetry.latitude else animal.latitude
+
+    lat = latest_telemetry.latitude  if latest_telemetry and latest_telemetry.latitude  else animal.latitude
     lon = latest_telemetry.longitude if latest_telemetry and latest_telemetry.longitude else animal.longitude
-    
+    coord_source = "telemetry" if latest_telemetry and latest_telemetry.latitude else ("animal" if animal.latitude else None)
+
     if lat is None or lon is None:
-        # Fallback to farm location if animal has no telemetry/fixed coords
         farm = db.query(Farm).filter(Farm.id == animal.farm_id).first()
         if farm and farm.location:
-            try:
-                from ..core.location_utils import parse_coordinates
-                coords = parse_coordinates(farm.location)
-                if coords: lat, lon = coords
-            except: pass
-            
-    # Absolute fallback (Ariana-Tunis region)
-    if lat is None: lat, lon = 36.8665, 10.1647
-            
+            from ..core.location_utils import parse_coordinates
+            coords = parse_coordinates(farm.location)
+            if coords:
+                lat, lon = coords
+                coord_source = "farm"
+
+    if lat is None or lon is None:
+        raise HTTPException(
+            status_code=422,
+            detail=("Coordonnées indisponibles : aucune télémétrie, ni position "
+                    "fixe, ni localisation de ferme. Renseignez farm.location ou "
+                    "animal.latitude/longitude.")
+        )
+
     weather = await weather_service.get_current_weather(lat, lon)
     ndvi = satellite_service.get_ndvi_for_location(lat, lon)
-    
+
+    raw_temp = weather.get("temperature")
+    raw_ndvi = ndvi.get("ndvi_value")
+
     return {
-        "temperature": weather.get("temperature", 24.0),
-        "ndvi": ndvi.get("ndvi_value", 0.5),
-        "ndvi_status": ndvi.get("status", "Healthy"),
-        "timestamp": datetime.now().isoformat()
+        "temperature":  float(raw_temp) if raw_temp is not None else None,
+        "ndvi":         float(raw_ndvi) if raw_ndvi is not None else None,
+        "ndvi_status":  ndvi.get("status", "Unknown"),
+        "ndvi_provider": ndvi.get("provider"),
+        "weather_stale": bool(weather.get("stale")),
+        "ndvi_stale":   bool(ndvi.get("stale")),
+        "coord_source": coord_source,
+        "coordinates":  {"lat": round(lat, 6), "lon": round(lon, 6)},
+        "timestamp":    datetime.now().isoformat()
     }
 

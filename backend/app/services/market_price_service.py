@@ -3,7 +3,7 @@ Market Price Service — Dynamic livestock valuation (Tunisia context)
 ====================================================================
 No paid API, no subscription. Produces a *dynamic* price in TND by blending:
 
-  1. Species base price (TND, anchored on Tunisian souk reference 2025)
+  1. Species base price (TND, anchored on Tunisian souk reference 2026)
   2. Live USD→TND exchange rate (ECB via frankfurter.app — free, no key)
      → captures import/feed cost pressure translated to livestock value
   3. Seasonal multiplier (lunar calendar driven):
@@ -15,7 +15,7 @@ No paid API, no subscription. Produces a *dynamic* price in TND by blending:
 Output is recomputed live every request (exchange rate cached 1h).
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import logging
 import time
 from typing import Optional
@@ -33,31 +33,85 @@ _BASE_TND = {
     "Volaille":   35,
 }
 
-# Baseline exchange rate (USD → TND around mid-2025). Current rate is
-# compared against this to derive an "economic pressure" factor.
-_USD_TND_BASELINE = 3.10
-
 # Cache
 _CACHE_TTL = 3600
+_BASELINE_TTL = 86400 * 7  # rolling baseline refreshed weekly
 _fx_cache: dict = {}
+_baseline_cache: dict = {}
 
-# ── Islamic / seasonal windows (approximate — update yearly if needed) ──
-# Keys are (year, month, day_from, day_to) — gregorian projection of hijri
-# calendar. Values are multipliers per species.
-_SEASONAL_WINDOWS = [
-    # Aïd al-Adha ~ 10 Dhu al-Hijjah. Projected Gregorian dates:
-    # 2025: 2025-06-06 → 2025-06-10 (peak demand ~ 2 weeks before)
-    # 2026: 2026-05-27 → 2026-05-31
-    # 2027: 2027-05-16 → 2027-05-20
-    {"from": "2025-05-20", "to": "2025-06-12", "mult": {"Ovin": 1.35, "Caprin": 1.28}},
-    {"from": "2026-05-10", "to": "2026-06-02", "mult": {"Ovin": 1.35, "Caprin": 1.28}},
-    {"from": "2027-04-30", "to": "2027-05-22", "mult": {"Ovin": 1.35, "Caprin": 1.28}},
+# Hijri → Gregorian projection. Computed dynamically via Aladhan API
+# (free, no key, official source: islamicfinder/diyanet-aligned).
+_HIJRI_API = "https://api.aladhan.com/v1/hToGCalendar"
+_hijri_cache: dict = {}
 
-    # Ramadan — higher Bovin demand for couscous feasts
-    {"from": "2025-02-28", "to": "2025-03-30", "mult": {"Bovin": 1.08}},
-    {"from": "2026-02-17", "to": "2026-03-19", "mult": {"Bovin": 1.08}},
-    {"from": "2027-02-06", "to": "2027-03-08", "mult": {"Bovin": 1.08}},
-]
+
+def _fetch_hijri_event(hijri_month: int, hijri_day: int, gregorian_year: int) -> Optional[date]:
+    """Convert a Hijri date (month, day, current Gregorian year for window) to Gregorian.
+    Uses the Aladhan public API. Cached per (month, day, year)."""
+    key = f"{hijri_month}_{hijri_day}_{gregorian_year}"
+    if key in _hijri_cache:
+        return _hijri_cache[key]
+    try:
+        # The API returns the Gregorian dates corresponding to a Hijri month.
+        # We probe the current Hijri year by trying each candidate.
+        for h_year in (gregorian_year - 622, gregorian_year - 621, gregorian_year - 620):
+            r = _http.get(f"{_HIJRI_API}/{hijri_month}/{h_year}", timeout=6)
+            if r.status_code != 200:
+                continue
+            data = r.json().get("data", [])
+            for entry in data:
+                hijri = entry.get("hijri", {})
+                gregorian = entry.get("gregorian", {})
+                if int(hijri.get("day", 0)) == hijri_day:
+                    g_str = gregorian.get("date")  # "DD-MM-YYYY"
+                    if g_str:
+                        d, m, y = g_str.split("-")
+                        result = date(int(y), int(m), int(d))
+                        if result.year == gregorian_year:
+                            _hijri_cache[key] = result
+                            return result
+    except Exception as exc:
+        logger.debug(f"Hijri API failed: {exc}")
+    _hijri_cache[key] = None
+    return None
+
+
+def _compute_seasonal_windows(year: int) -> list[dict]:
+    """Build current-year seasonal multiplier windows from real Hijri calendar."""
+    windows = []
+    # Aïd al-Adha = 10 Dhu al-Hijjah (Hijri month 12). Demand peaks ~3 weeks prior.
+    aid_date = _fetch_hijri_event(12, 10, year)
+    if aid_date:
+        windows.append({
+            "from": (aid_date - timedelta(days=21)).isoformat(),
+            "to":   (aid_date + timedelta(days=2)).isoformat(),
+            "mult": {"Ovin": 1.35, "Caprin": 1.28},
+            "label": "Aïd al-Adha",
+        })
+    # Ramadan = entire Hijri month 9. Higher Bovin demand throughout.
+    ram_start = _fetch_hijri_event(9, 1, year)
+    ram_end   = _fetch_hijri_event(9, 29, year)
+    if ram_start and ram_end:
+        windows.append({
+            "from": ram_start.isoformat(),
+            "to":   ram_end.isoformat(),
+            "mult": {"Bovin": 1.08},
+            "label": "Ramadan",
+        })
+    return windows
+
+
+def _get_seasonal_windows() -> list[dict]:
+    """Cache seasonal windows for 24h. Covers current and next Gregorian year
+    to handle late-Dec lookups."""
+    now = time.time()
+    cached = _baseline_cache.get("seasonal")
+    if cached and cached["_ts"] > now - 86400:
+        return cached["windows"]
+    year = date.today().year
+    windows = _compute_seasonal_windows(year) + _compute_seasonal_windows(year + 1)
+    _baseline_cache["seasonal"] = {"windows": windows, "_ts": now}
+    return windows
 
 
 _FX_SOURCES = [
@@ -102,29 +156,59 @@ def _fetch_usd_tnd() -> Optional[float]:
 
 
 def _seasonal_multiplier(species: str, today: Optional[date] = None) -> tuple[float, str | None]:
-    """Return (multiplier, window_label) for the given species & date."""
+    """Return (multiplier, window_label) for the given species & date.
+    Uses real-time Hijri calendar via Aladhan API."""
     today = today or date.today()
-    for w in _SEASONAL_WINDOWS:
-        start = date.fromisoformat(w["from"])
-        end   = date.fromisoformat(w["to"])
+    for w in _get_seasonal_windows():
+        try:
+            start = date.fromisoformat(w["from"])
+            end   = date.fromisoformat(w["to"])
+        except Exception:
+            continue
         if start <= today <= end:
             mult = w["mult"].get(species, 1.0)
             if mult != 1.0:
-                label = _window_label(w)
-                return mult, label
-    # Winter feed scarcity (Dec–Feb) baseline dip
+                return mult, w.get("label", "Période spéciale")
+    # Winter feed scarcity (Dec–Feb) baseline dip — meteorologically grounded
     if today.month in (12, 1, 2):
         return 0.95, "Saison hivernale (fourrage)"
     return 1.0, None
 
 
-def _window_label(window: dict) -> str:
-    m = window.get("mult", {})
-    if "Ovin" in m or "Caprin" in m:
-        return "Aïd al-Adha"
-    if "Bovin" in m:
-        return "Ramadan"
-    return "Période spéciale"
+def _rolling_baseline_usd_tnd() -> float:
+    """
+    Compute a real 90-day moving average of USD/TND from frankfurter.app
+    (free ECB-backed time-series API, no key). Cached weekly.
+
+    This replaces the previously hardcoded 3.10 baseline with a live,
+    self-updating reference value.
+    """
+    now = time.time()
+    cached = _baseline_cache.get("usd_tnd_baseline")
+    if cached and cached["_ts"] > now - _BASELINE_TTL:
+        return cached["rate"]
+
+    end = date.today()
+    start = end - timedelta(days=90)
+    try:
+        r = _http.get(
+            f"https://api.frankfurter.app/{start.isoformat()}..{end.isoformat()}",
+            params={"from": "USD", "to": "TND"},
+            timeout=8,
+        )
+        r.raise_for_status()
+        rates = r.json().get("rates", {})
+        values = [float(v["TND"]) for v in rates.values() if "TND" in v]
+        if values:
+            avg = sum(values) / len(values)
+            _baseline_cache["usd_tnd_baseline"] = {"rate": avg, "_ts": now}
+            return avg
+    except Exception as exc:
+        logger.debug(f"Baseline FX history fetch failed: {exc}")
+
+    # Last-resort: use the current rate as baseline (no FX adjustment then)
+    current = _fx_cache.get("usd_tnd", {}).get("rate")
+    return float(current) if current else 3.10
 
 
 def get_price_context() -> dict:
@@ -133,10 +217,11 @@ def get_price_context() -> dict:
     Call this once per dashboard load; the result is dynamic (updates daily).
     """
     rate = _fetch_usd_tnd()
+    baseline = _rolling_baseline_usd_tnd()
     fx_factor = 1.0
-    if rate is not None:
+    if rate is not None and baseline > 0:
         # 1% move in USD/TND = ~0.5% livestock price move (dampened)
-        fx_factor = 1.0 + 0.5 * ((rate / _USD_TND_BASELINE) - 1.0)
+        fx_factor = 1.0 + 0.5 * ((rate / baseline) - 1.0)
         fx_factor = max(0.85, min(1.25, fx_factor))  # clamp ±25%
 
     today = date.today()
@@ -150,9 +235,9 @@ def get_price_context() -> dict:
         "updated_at": datetime.utcnow().isoformat() + "Z",
         "exchange_rate": {
             "usd_tnd":  round(rate, 4) if rate else None,
-            "baseline": _USD_TND_BASELINE,
+            "baseline": round(baseline, 4),
             "factor":   round(fx_factor, 4),
-            "source":   "ECB / frankfurter.app",
+            "source":   "open.er-api.com / frankfurter.app (ECB)",
         },
         "base_prices_tnd": _BASE_TND,
         "seasonal":        seasonal,
