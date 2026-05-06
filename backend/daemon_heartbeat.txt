@@ -1,4 +1,4 @@
-last_run=2026-05-05T23:45:04.997345+00:00
+last_run=2026-05-06T17:02:16.785963+00:00
 animals=22
-cycle=7
+cycle=2
 mode=real-data-only (no IoT/no simulation)

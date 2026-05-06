@@ -4,9 +4,8 @@ from jose import jwt
 from passlib.context import CryptContext
 from .config import settings
 
-# Using pbkdf2_sha256 for maximum compatibility across environments
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-ALGORITHM = "HS256"
+ALGORITHM = settings.ALGORITHM
 
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
     if expires_delta:

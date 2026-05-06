@@ -271,7 +271,7 @@ const HealthTabs = ({ animal, consumption, vaccinations, treatments, loading, on
     };
     
     fetchEnv();
-    const interval = setInterval(fetchEnv, 15000); // 15s High-Frequency Sync
+    const interval = setInterval(fetchEnv, 60000); // 60s — reduced from 15s to avoid flooding during health scan
     return () => clearInterval(interval);
   }, [animal.id]);
 
@@ -1579,7 +1579,6 @@ const AnimalsDashboard = ({ user }) => {
               };
 
               const payload = preparePayload(formData);
-              delete payload.status;
 
               // For creation, we need farm_id
               if (!editingAnimal) {
@@ -1590,13 +1589,21 @@ const AnimalsDashboard = ({ user }) => {
                 }
               }
 
-              const action = editingAnimal 
+              const action = editingAnimal
                 ? livestockService.updateAnimal(editingAnimal.id, payload)
                 : livestockService.addAnimal(payload);
-              
-              action.then(() => {
+
+              action.then((res) => {
                 setIsModalOpen(false);
-                fetchAnimals();
+                if (editingAnimal) {
+                  // Update the animal directly in the grid without waiting for a full re-fetch
+                  const updatedAnimal = res?.data || { ...editingAnimal, ...payload };
+                  setAnimals(prev => prev.map(a =>
+                    a.id === editingAnimal.id ? { ...a, ...updatedAnimal } : a
+                  ));
+                } else {
+                  fetchAnimals();
+                }
               }).catch(err => {
                 console.error("CRUD Error:", err.response?.data || err.message);
                 const detail = err.response?.data?.detail;

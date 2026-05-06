@@ -1,19 +1,26 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool, QueuePool
 from ..core.config import settings
 
-from sqlalchemy.pool import NullPool
-
-# Pointing to local PostgreSQL (assuming user: postgres, pass: sania_pass, port: 5432)
-# The DATABASE_URL is constructed in config.py
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
-engine = create_engine(
-    settings.DATABASE_URL, 
-    connect_args={"check_same_thread": False, "timeout": 30} if is_sqlite else {},
-    # Temporary SVI Bypass: Use NullPool to force unlock zombie connections
-    poolclass=NullPool
-)
+
+if is_sqlite:
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False, "timeout": 30},
+        poolclass=NullPool,
+    )
+else:
+    engine = create_engine(
+        settings.DATABASE_URL,
+        poolclass=QueuePool,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
 
 print(f"DATABASE IN USE: {'SQLite (Local)' if is_sqlite else 'PostgreSQL (Native/Cloud)'}")
 print(f"URL: {settings.DATABASE_URL.split('@')[-1] if not is_sqlite else settings.DATABASE_URL}")

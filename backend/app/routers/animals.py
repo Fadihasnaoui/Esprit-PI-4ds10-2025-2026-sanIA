@@ -347,9 +347,13 @@ def submit_manual_vital_reading(
     if current_user.role == UserRole.FARMER and animal.farm_id != current_user.farm_id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
+    _VALID_ACTIVITIES = {"RESTING", "EATING", "WALKING", "RUMINATING", "RUNNING"}
     activity = (reading.activity_level or "RESTING").upper()
-    if activity not in {"RESTING", "EATING", "WALKING", "RUMINATING", "RUNNING"}:
-        activity = "RESTING"
+    if activity not in _VALID_ACTIVITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Valeur activity_level invalide : '{activity}'. Valeurs acceptées : {sorted(_VALID_ACTIVITIES)}."
+        )
 
     row = AnimalTelemetry(
         animal_id      = str(animal_id),
@@ -373,9 +377,22 @@ def submit_manual_vital_reading(
     return row
 
 
+def _get_animal_owned(animal_id: UUID, db: Session, current_user: User) -> Animal:
+    """Fetch animal and verify ownership for FARMER role."""
+    animal = db.query(Animal).filter(Animal.id == str(animal_id)).first()
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found")
+    if current_user.role == UserRole.FARMER and animal.farm_id != current_user.farm_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return animal
+
+
 # --- Vaccination Logs ---
 @router.post("/{animal_id}/vaccinations", response_model=VaccinationLogInDB)
-def add_vaccination(animal_id: UUID, log_in: VaccinationLogCreate, db: Session = Depends(get_db)):
+def add_vaccination(animal_id: UUID, log_in: VaccinationLogCreate,
+                    db: Session = Depends(get_db),
+                    current_user: User = Depends(get_current_active_user)):
+    _get_animal_owned(animal_id, db, current_user)
     db_log = VaccinationLog(**log_in.dict(), animal_id=str(animal_id))
     db.add(db_log)
     db.commit()
@@ -383,24 +400,29 @@ def add_vaccination(animal_id: UUID, log_in: VaccinationLogCreate, db: Session =
     return db_log
 
 @router.delete("/vaccinations/{log_id}")
-def delete_vaccination(log_id: UUID, db: Session = Depends(get_db)):
+def delete_vaccination(log_id: UUID, db: Session = Depends(get_db),
+                       current_user: User = Depends(get_current_active_user)):
     db_log = db.query(VaccinationLog).filter(VaccinationLog.id == str(log_id)).first()
     if not db_log:
         raise HTTPException(status_code=404, detail="Log not found")
+    _get_animal_owned(UUID(db_log.animal_id), db, current_user)
     db.delete(db_log)
     db.commit()
     return {"status": "success"}
 
 @router.put("/vaccinations/{log_id}", response_model=VaccinationLogInDB)
-def update_vaccination(log_id: UUID, log_in: VaccinationLogCreate, db: Session = Depends(get_db)):
+def update_vaccination(log_id: UUID, log_in: VaccinationLogCreate,
+                       db: Session = Depends(get_db),
+                       current_user: User = Depends(get_current_active_user)):
     db_log = db.query(VaccinationLog).filter(VaccinationLog.id == str(log_id)).first()
     if not db_log:
         raise HTTPException(status_code=404, detail="Log not found")
-    
+    _get_animal_owned(UUID(db_log.animal_id), db, current_user)
+
     update_data = log_in.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_log, field, value)
-    
+
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
@@ -408,7 +430,10 @@ def update_vaccination(log_id: UUID, log_in: VaccinationLogCreate, db: Session =
 
 # --- Treatment Logs ---
 @router.post("/{animal_id}/treatments", response_model=TreatmentLogInDB)
-def add_treatment(animal_id: UUID, log_in: TreatmentLogCreate, db: Session = Depends(get_db)):
+def add_treatment(animal_id: UUID, log_in: TreatmentLogCreate,
+                  db: Session = Depends(get_db),
+                  current_user: User = Depends(get_current_active_user)):
+    _get_animal_owned(animal_id, db, current_user)
     db_log = TreatmentLog(**log_in.dict(), animal_id=str(animal_id))
     db.add(db_log)
     db.commit()
@@ -416,25 +441,33 @@ def add_treatment(animal_id: UUID, log_in: TreatmentLogCreate, db: Session = Dep
     return db_log
 
 @router.delete("/treatments/{log_id}")
-def delete_treatment(log_id: UUID, db: Session = Depends(get_db)):
+def delete_treatment(log_id: UUID, db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_active_user)):
     db_log = db.query(TreatmentLog).filter(TreatmentLog.id == str(log_id)).first()
     if not db_log:
         raise HTTPException(status_code=404, detail="Log not found")
+    _get_animal_owned(UUID(db_log.animal_id), db, current_user)
     db.delete(db_log)
     db.commit()
     return {"status": "success"}
 
 # --- Health & Consumption Retrieval ---
 @router.get("/{animal_id}/vaccinations", response_model=List[VaccinationLogInDB])
-def get_vaccinations(animal_id: UUID, db: Session = Depends(get_db)):
+def get_vaccinations(animal_id: UUID, db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_active_user)):
+    _get_animal_owned(animal_id, db, current_user)
     return db.query(VaccinationLog).filter(VaccinationLog.animal_id == str(animal_id)).all()
 
 @router.get("/{animal_id}/treatments", response_model=List[TreatmentLogInDB])
-def get_treatments(animal_id: UUID, db: Session = Depends(get_db)):
+def get_treatments(animal_id: UUID, db: Session = Depends(get_db),
+                   current_user: User = Depends(get_current_active_user)):
+    _get_animal_owned(animal_id, db, current_user)
     return db.query(TreatmentLog).filter(TreatmentLog.animal_id == str(animal_id)).all()
 
 @router.get("/{animal_id}/consumption", response_model=List[ConsumptionLogInDB])
-def get_consumption(animal_id: UUID, limit: int = 30, db: Session = Depends(get_db)):
+def get_consumption(animal_id: UUID, limit: int = 30, db: Session = Depends(get_db),
+                    current_user: User = Depends(get_current_active_user)):
+    _get_animal_owned(animal_id, db, current_user)
     return db.query(ConsumptionLog).filter(ConsumptionLog.animal_id == str(animal_id))\
              .order_by(desc(ConsumptionLog.date)).limit(limit).all()
 

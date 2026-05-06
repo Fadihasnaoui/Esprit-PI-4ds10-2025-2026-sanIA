@@ -10,7 +10,9 @@ import io
 import time
 import json
 import re
+import hashlib
 import logging
+
 from PIL import Image
 try:
     import google.generativeai as genai
@@ -19,6 +21,17 @@ except ImportError:
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# 512px keeps the image in a single Gemini tile AND reduces JPEG upload size.
+_MAX_IMAGE_DIM  = 512
+_JPEG_QUALITY   = 72
+_MODEL_TIMEOUT  = 12          # seconds per model attempt
+_MAX_OUT_TOKENS = 2048        # full BCS JSON needs ~800-1200 tokens
+
+# In-memory result cache: keyed on (image_sha256, species).
+# Holds up to 32 recent analyses — resets on server restart.
+_RESULT_CACHE: dict = {}
+_CACHE_MAX = 32
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -64,83 +77,23 @@ HEALTH_CLASSES = [
     }
 ]
 
-EXPERT_PROMPT = """Vous êtes 'Sania Expert Vision', un vétérinaire en chef doté d'une intelligence artificielle experte en Body Condition Scoring (BCS) du bétail.
-Votre mission est d'analyser l'état de santé de l'animal présenté sur cette image, spécifiquement l'espèce : {species}.
-
-Effectuez une analyse BCS rigoureuse et factuelle basée sur l'apparence physique (visibilité des côtes, colonne vertébrale, creux des flancs, qualité et brillance du pelage, hydratation perçue, posture).
-
-Vous DEVEZ ABSOLUMENT fournir votre réponse UNIQUEMENT sous la forme d'un objet JSON valide, sans balises markdown autour, suivant EXACTEMENT ce schéma :
-
-{{
-    "bcs_scores": {{
-        "overall": <Nombre entre 0 et 100>,
-        "coat_quality": <Nombre entre 0 et 100>,
-        "hydration": <Nombre entre 0 et 100>,
-        "nutrition": <Nombre entre 0 et 100>,
-        "stress_resistance": <Nombre entre 0 et 100>,
-        "is_weak_detected": <Booleen, true si overall < 50>
-    }},
-    "diagnosis": {{
-        "primary": {{
-            "id": "<sain | critique | deshydrate | sous_alimente | stresse>",
-            "label": "<Sain | Critique | Déshydraté | Sous-alimenté | Stressé>",
-            "emoji": "<✅ | 🚨 | 💧 | 🍽️ | ⚡>",
-            "color": "<#4ade80 | #ef4444 | #38bdf8 | #fbbf24 | #a78bfa>",
-            "confidence": <Nombre entre 0 et 1>
-        }},
-        "all_diagnoses": [
-            {{
-                "id": "<id>",
-                "label": "<Label>",
-                "emoji": "<Emoji>",
-                "color": "<Color>",
-                "confidence": <Nombre entre 0 et 1>
-            }}
-        ],
-        "action_plan": {{
-            "immediate": [
-                {{
-                    "task": "Tâche Urgente",
-                    "detail": "Description détaillée...",
-                    "urgency": "HIGH"
-                }}
-            ],
-            "short_term": [
-                {{
-                    "task": "Tâche de suivi",
-                    "detail": "Description...",
-                    "urgency": "MEDIUM"
-                }}
-            ],
-            "veterinary": [
-                {{
-                    "task": "Examen Vétérinaire",
-                    "detail": "Description...",
-                    "urgency": "CRITICAL"
-                }}
-            ]
-        }}
-    }},
-    "features": {{
-        "color": {{
-            "pelage_dominant": "<Couleur>",
-            "brillance": "<Normale/Terne/Brillante>"
-        }},
-        "texture": {{
-            "etat_pelage": "<Lisse/Ebouriffe/Etude>",
-            "lesions_visibles": "<Aucune/Oui>"
-        }}
-    }}
-}}
-
-Règles impératives de diagnostic vétérinaire :
-1. Si l'animal montre des os saillants (côtes visibles, bassin ou vertèbres apparentes), ou des creux importants au niveau des flancs, vous DEVEZ abaisser la note "overall" et "nutrition" SOUS LA BARRE DES 40. Le diagnostic "primary" DOIT alors être "Critique" ou "Sous-alimenté". (L'erreur commune des anciens modèles était de donner "Sain" aux animaux affamés juste car la photo était ensoleillée : NE FAITES PAS CELA).
-2. Si le pelage est terne, ébouriffé ou les yeux creusés, baissez "hydration" (< 50) et diagnostiquez "Déshydraté" ou listez-le dans "all_diagnoses".
-3. L'action plan "immediate" ou "veterinary" DOIT être rempli en cas de faiblesse. Sinon, laissez les tableaux vides [].
-4. Ne répondez QUE par le JSON exact (vérifiez la validité JSON). Aucune phrase avant ou après.
-
-Analysez maintenant précisément l'état de l'animal.
-"""
+EXPERT_PROMPT = (
+    "You are a veterinary AI. Analyze this {species} image for body condition scoring (BCS). "
+    "Reply with ONLY a valid JSON object, no markdown, no explanation.\n"
+    "Required fields:\n"
+    "bcs_scores: overall(0-100), coat_quality(0-100), hydration(0-100), nutrition(0-100), "
+    "stress_resistance(0-100), is_weak_detected(boolean)\n"
+    "diagnosis.primary: id(sain|critique|deshydrate|sous_alimente|stresse), "
+    "label(Sain|Critique|Déshydraté|Sous-alimenté|Stressé), "
+    "emoji(✅|🚨|💧|🍽️|⚡), color(#4ade80|#ef4444|#38bdf8|#fbbf24|#a78bfa), confidence(0-1)\n"
+    "diagnosis.all_diagnoses: array of same structure for all applicable conditions\n"
+    "diagnosis.action_plan: immediate[], short_term[], veterinary[] — each item has task, detail, urgency\n"
+    "features.color: pelage_dominant(string), brillance(Normale|Terne|Brillante)\n"
+    "features.texture: etat_pelage(Lisse|Ebouriffe), lesions_visibles(Aucune|Oui)\n"
+    "RULES: visible ribs/spine/hollow flanks → overall<40, nutrition<40, id=critique or sous_alimente. "
+    "Dull coat/sunken eyes → hydration<50, include deshydrate. "
+    "Leave action_plan arrays empty if animal is healthy. Output JSON only."
+)
 
 
 class HealthScanService:
@@ -156,7 +109,39 @@ class HealthScanService:
             logger.info("🏥 Health Scan Expert Engine (Gemini API): Initialized")
         return cls._instance
 
-    def _fallback_heuristic(self, species: str, error_msg: str = "Erreurs multiples") -> dict:
+    @staticmethod
+    def _parse_json(text: str) -> dict | None:
+        """Extract a JSON object from any Gemini response format."""
+        text = text.strip()
+        # 1. Pure JSON
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        # 2. Markdown code block: ```json {...} ``` or ``` {...} ```
+        md = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if md:
+            try:
+                return json.loads(md.group(1))
+            except json.JSONDecodeError:
+                pass
+        # 3. First balanced { ... } in arbitrary text
+        start = text.find("{")
+        if start != -1:
+            depth = 0
+            for i, ch in enumerate(text[start:], start):
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            return json.loads(text[start : i + 1])
+                        except json.JSONDecodeError:
+                            break
+        return None
+
+    def _fallback_heuristic(self, _species: str, error_msg: str = "Erreurs multiples") -> dict:
         """Fallback clairs en cas de failure de l'API Gemini ou clé manquante."""
         return {
             "bcs_scores": {
@@ -183,7 +168,16 @@ class HealthScanService:
 
     def analyze(self, image_bytes: bytes, species: str = "Bovin") -> dict:
         start_time = time.time()
-        
+
+        # --- Cache lookup ---
+        cache_key = (hashlib.sha256(image_bytes).hexdigest(), species)
+        if cache_key in _RESULT_CACHE:
+            cached = dict(_RESULT_CACHE[cache_key])
+            cached["latency_ms"] = 0
+            cached["cached"] = True
+            logger.info("Health scan cache hit for species=%s", species)
+            return cached
+
         if not API_KEY or not genai:
             logger.error("❌ Pas de clé GEMINI_API_KEY ou module introuvable !")
             fb = self._fallback_heuristic(species, "Clé API manquante ou module genai non installé")
@@ -193,42 +187,66 @@ class HealthScanService:
                 **fb,
                 "latency_ms": 10
             }
-            
+
         try:
-            # 1. Préparation de l'image
-            image = Image.open(io.BytesIO(image_bytes))
-            image.thumbnail((1024, 1024))
-            
-            # 2. Appel au modèle Gemini
-            # Utilisation de gemini-flash-latest (plus robuste aux changements de version)
-            model = genai.GenerativeModel('gemini-flash-latest')
+            # 1. Resize + compress to JPEG bytes — controls upload size precisely
+            pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            pil_img.thumbnail((_MAX_IMAGE_DIM, _MAX_IMAGE_DIM), Image.LANCZOS)
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+            jpeg_bytes = buf.getvalue()
+            image_part = {"mime_type": "image/jpeg", "data": jpeg_bytes}
+
+            # 2. Cascade modèles avec timeout par tentative
+            _MODELS = [
+                "gemini-2.5-flash-lite",   # fastest available — flash-lite-latest gives 504
+                "gemini-2.5-flash",
+                "gemini-flash-latest",
+            ]
             prompt = EXPERT_PROMPT.replace("{species}", species)
-            
-            logger.info(f"Analyse {species} via Gemini Flash...")
-            
-            generation_config = genai.types.GenerationConfig(
-                temperature=0.1,
+
+            # Two configs: with JSON mime type (cleaner output), fallback without
+            _cfg_json = genai.types.GenerationConfig(
+                temperature=0.1, max_output_tokens=_MAX_OUT_TOKENS,
                 response_mime_type="application/json"
             )
-            
-            response = model.generate_content(
-                [prompt, image],
-                generation_config=generation_config
+            _cfg_text = genai.types.GenerationConfig(
+                temperature=0.1, max_output_tokens=_MAX_OUT_TOKENS
             )
-            
-            # 3. Extraction Robuste du JSON
+
+            response = None
+            for model_name in _MODELS:
+                for cfg in (_cfg_json, _cfg_text):
+                    try:
+                        model = genai.GenerativeModel(model_name)
+                        response = model.generate_content(
+                            [prompt, image_part],
+                            generation_config=cfg,
+                            request_options={"timeout": _MODEL_TIMEOUT},
+                        )
+                        logger.info("Analyse %s via %s (%dx%dpx, %dkB).",
+                                    species, model_name, pil_img.width, pil_img.height,
+                                    len(jpeg_bytes) // 1024)
+                        break
+                    except Exception as model_err:
+                        logger.warning("Model %s cfg=%s failed: %s",
+                                       model_name, cfg.response_mime_type or "text", model_err)
+                if response is not None:
+                    break
+
+            if response is None:
+                raise ValueError("Aucun modèle Gemini disponible.")
+
+            # 3. Extraction JSON robuste — gère JSON pur, markdown code blocks, JSON noyé dans du texte
             if not response.candidates or not response.candidates[0].content.parts:
-                 raise ValueError("Gemini n'a renvoyé aucun contenu (possible blocage de sécurité).")
-            
-            text = response.text
-            
-            # Nettoyage regex pour extraire uniquement le bloc JSON
-            json_match = re.search(r'\{.*\}', text, re.DOTALL)
-            if not json_match:
-                logger.error(f"Format JSON invalide reçu : {text}")
+                raise ValueError("Gemini n'a renvoyé aucun contenu (blocage sécurité possible).")
+
+            raw = response.text.strip()
+            result_data = self._parse_json(raw)
+
+            if result_data is None:
+                logger.error("Réponse non parseable (100 premiers chars) : %s", raw[:100])
                 raise ValueError("Format de réponse IA incompatible.")
-                
-            result_data = json.loads(json_match.group(0))
             
             # 4. Validation & Defaults (Schema Protection)
             # On s'assure que les clés vitales existent pour éviter les crashes au front
@@ -237,8 +255,8 @@ class HealthScanService:
             feat = result_data.get("features", {})
             
             latency_ms = int((time.time() - start_time) * 1000)
-            
-            return {
+
+            result = {
                 "status": "success",
                 "engine": "Sania BCS Vision Expert (Gemini API)",
                 "species_analyzed": species,
@@ -257,11 +275,20 @@ class HealthScanService:
                 },
                 "features": feat,
                 "metadata": {
-                    "input_size": f"{image.width}×{image.height}",
-                    "model": "gemini-flash-latest"
+                    "input_size": f"{pil_img.width}×{pil_img.height}",
+                    "model": "gemini-1.5-flash"
                 },
-                "latency_ms": latency_ms
+                "latency_ms": latency_ms,
+                "cached": False,
             }
+
+            # Store in cache (evict oldest entry if full)
+            if len(_RESULT_CACHE) >= _CACHE_MAX:
+                oldest_key = next(iter(_RESULT_CACHE))
+                del _RESULT_CACHE[oldest_key]
+            _RESULT_CACHE[cache_key] = result
+
+            return result
             
         except Exception as e:
             logger.error(f"❌ Health Scan Error: {e}")

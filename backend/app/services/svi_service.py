@@ -1,7 +1,7 @@
 """
 SVI Service — Moteur "Sania Orbital Expert" v9.0
 =================================================
-Architecture : Gemini Vision (Primary) + YOLOv8-SAHI-9-TTA (Secondary) + Fusion
+Architecture : YOLOv8-SAHI-9-TTA (Secondary) + Fusion
 Pipeline     : Satellite Preprocessing → Gemini Orbital → YOLOv8+SAHI-9 → Confidence Fusion
 Target       : Expert species detection from satellite/aerial imagery (low-quality, high-altitude)
 

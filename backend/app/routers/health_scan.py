@@ -5,6 +5,7 @@ Endpoint : POST /api/v1/health-scan/analyze
 Pipeline : Upload Image + Species → BCS Analysis → Health Report
 """
 
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from ..db.session import get_db
@@ -74,8 +75,8 @@ async def analyze_animal_health(
                 "breed": animal.breed
             }
     
-    # Run analysis
-    result = health_scan_service.analyze(image_bytes, species=species)
+    # Run analysis in a thread pool — keeps the async event loop free during the Gemini call
+    result = await asyncio.to_thread(health_scan_service.analyze, image_bytes, species)
     
     # We allow "error" status to return but we handle the HTTP exception at the end of the logical flow 
     # to allow returning partial results or specific error structures if needed.

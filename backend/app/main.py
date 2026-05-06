@@ -10,15 +10,21 @@ from app.core.config import settings
 from app.routers import auth, fields, sensors, scans, ndvi, alerts, animals, livestock_ws, livestock_scans, health_scan, satellite, insights
 from app.services.intelligence_daemon import intelligence_daemon
 from contextlib import asynccontextmanager
-from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Démarrage du moteur d'intelligence en temps réel
+    from app.db.session import engine
+    from app.models.all_models import Base
+    from app.db.migrations import run as run_migrations
+
+    # 1. Create new tables, then apply column migrations — must finish BEFORE daemon starts
+    Base.metadata.create_all(bind=engine)
+    run_migrations(engine)
+
+    # 2. Start background intelligence engine
     print(f"Starting Intelligence Daemon with DB: {settings.DATABASE_URL}")
     intelligence_daemon.start()
     yield
-    # Arrêt propre
     intelligence_daemon.stop()
 
 app = FastAPI(
@@ -27,15 +33,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-@app.on_event("startup") # Fallback for DB Init
-def startup_event():
-    from app.db.session import engine
-    from app.models.all_models import Base
-    Base.metadata.create_all(bind=engine)
+_ALLOWED_ORIGINS = [o.strip() for o in os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+).split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

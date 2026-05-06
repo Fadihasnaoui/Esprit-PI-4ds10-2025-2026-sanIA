@@ -1,12 +1,16 @@
+import logging
 from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore
 from typing import Optional
 import os
 
+_config_logger = logging.getLogger(__name__)
+
+_DEFAULT_SECRET = "SUPER_SECRET_KEY_DONT_USE_IN_PROD"
+
 class Settings(BaseSettings):
-    # Support for .env files - Modern Pydantic V2 config
     model_config = SettingsConfigDict(
-        env_file=".env", 
-        env_file_encoding='utf-8', 
+        env_file=".env",
+        env_file_encoding='utf-8',
         extra='ignore',
         case_sensitive=True
     )
@@ -14,9 +18,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Sania Smart Agriculture"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    
+
     # Security
-    SECRET_KEY: str = "SUPER_SECRET_KEY_DONT_USE_IN_PROD"
+    SECRET_KEY: str = _DEFAULT_SECRET
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     ALGORITHM: str = "HS256"
     
@@ -59,5 +63,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
 
 settings = Settings()
-# Update the final internal URL with the computed one
 settings.DATABASE_URL = settings.SQLALCHEMY_DATABASE_URI
+
+if settings.SECRET_KEY == _DEFAULT_SECRET:
+    _config_logger.warning(
+        "SECRET_KEY is using the insecure default value. "
+        "Set SECRET_KEY in your .env file before deploying to production."
+    )
