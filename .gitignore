@@ -78,3 +78,29 @@ __pycache__/
 
 # JS dependencies (never merge local installs into teammate branches)
 **/node_modules/
+
+# Local IDE / agent state
+.idea/
+.cursor/
+
+# Runtime logs and heartbeat files
+*.log
+*.err.log
+daemon_heartbeat.txt
+backend/daemon_heartbeat.txt
+
+# Local app caches and generated indexes
+backend/.gemini_orbital_cache.json
+backend/.safa_rag_index/
+Data/*metadata.pkl
+Data/*vector_index.bin
+mobile/.expo/
+
+# Unity recovery scenes
+DigitalTwinUnity/Assets/_Recovery/
+
+# Large local model artifact; use external storage if needed
+backend/yolov8m.onnx
+
+# Temporary local clean checkout for final push prep
+_push_tmp/

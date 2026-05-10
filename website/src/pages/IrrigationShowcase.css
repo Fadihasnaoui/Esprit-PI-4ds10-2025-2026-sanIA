@@ -1,0 +1,686 @@
+.irrigation-page {
+  position: relative;
+  padding: 2.2rem 0 1rem;
+}
+
+.irrigation-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.irrigation-hero-copy h1 {
+  margin: 0.45rem 0 0.6rem;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 0.98;
+  color: var(--text-bright);
+}
+
+.irrigation-hero-copy h1 span {
+  color: var(--primary);
+}
+
+.irrigation-hero-copy p {
+  max-width: 780px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.irrigation-agent-status {
+  min-width: 190px;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: start;
+  padding: 1rem;
+  border-radius: 18px;
+  background: var(--panel-muted);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+}
+
+.irrigation-agent-status.ready {
+  color: var(--primary);
+  border-color: rgba(139, 195, 74, 0.34);
+}
+
+.irrigation-agent-status.down {
+  color: var(--sand-gold);
+}
+
+.irrigation-agent-status strong {
+  color: var(--text-bright);
+}
+
+.irrigation-agent-status span {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.irrigation-layout {
+  display: grid;
+  grid-template-columns: minmax(270px, 330px) minmax(0, 1fr) minmax(260px, 320px);
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.irrigation-panel,
+.irrigation-scene-card,
+.irrigation-timeline-card {
+  padding: 1.15rem;
+}
+
+.irrigation-panel-title,
+.irrigation-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.irrigation-panel-title svg {
+  color: var(--primary);
+}
+
+.irrigation-panel-title div,
+.irrigation-section-head div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.irrigation-panel-title strong,
+.irrigation-section-head h2 {
+  color: var(--text-bright);
+  font-weight: 800;
+}
+
+.irrigation-section-head {
+  justify-content: space-between;
+}
+
+.irrigation-section-head span,
+.irrigation-panel-title small {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.irrigation-section-head h2 {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.45rem;
+}
+
+.irrigation-panel-title.compact {
+  margin-bottom: 0.75rem;
+}
+
+.irrigation-select {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 13px;
+  border: 1px solid var(--glass-border);
+  background: var(--panel-muted);
+  color: var(--text-bright);
+  padding: 0 0.75rem;
+  font-weight: 700;
+  color-scheme: dark;
+}
+
+.irrigation-select.compact {
+  margin-top: 0.4rem;
+}
+
+.irrigation-select option {
+  background: #111a15;
+  color: #f6f4ea;
+  font-weight: 700;
+}
+
+[data-theme="light"] .irrigation-select {
+  color-scheme: light;
+  background: rgba(255, 255, 255, 0.92);
+  color: #18221b;
+}
+
+[data-theme="light"] .irrigation-select option {
+  background: #f7fbf1;
+  color: #18221b;
+}
+
+.irrigation-empty {
+  color: var(--sand-gold);
+  line-height: 1.55;
+  font-size: 0.86rem;
+}
+
+.irrigation-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.irrigation-context-grid span {
+  min-height: 68px;
+  display: grid;
+  align-content: center;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: var(--panel-muted);
+  border: 1px solid var(--glass-border);
+}
+
+.irrigation-context-grid strong {
+  color: var(--text-bright);
+  font-size: 1rem;
+}
+
+.irrigation-context-grid small {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.irrigation-context-grid.tight {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.irrigation-context-grid.tight span {
+  min-height: 58px;
+}
+
+.irrigation-control-block {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.irrigation-control {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.irrigation-control span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.irrigation-control span svg {
+  color: var(--primary);
+  margin-right: auto;
+}
+
+.irrigation-control strong {
+  color: var(--text-bright);
+  font-size: 0.8rem;
+}
+
+.irrigation-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.irrigation-refresh {
+  width: 100%;
+  margin-top: 1rem;
+  justify-content: center;
+}
+
+.irrigation-loading {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  gap: 0.8rem;
+  color: var(--text-muted);
+}
+
+.irrigation-center {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.irrigation-scene {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid var(--glass-border);
+  background:
+    radial-gradient(circle at 50% 15%, rgba(139, 195, 74, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(23, 37, 31, 0.78), rgba(10, 16, 13, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+[data-theme="light"] .irrigation-scene {
+  background:
+    radial-gradient(circle at 50% 16%, rgba(93, 150, 55, 0.2), transparent 35%),
+    linear-gradient(180deg, rgba(233, 244, 224, 0.92), rgba(206, 221, 197, 0.88));
+}
+
+.irrigation-sky {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 45%;
+  pointer-events: none;
+}
+
+.irrigation-sun {
+  position: absolute;
+  right: 10%;
+  top: 13%;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--sand-gold);
+  background: rgba(212, 168, 67, 0.12);
+  box-shadow: 0 0 45px rgba(212, 168, 67, 0.28);
+}
+
+.irrigation-cloud {
+  position: absolute;
+  left: 12%;
+  top: 14%;
+  color: var(--sky-blue);
+  filter: drop-shadow(0 0 20px rgba(78, 173, 213, 0.5));
+  animation: drift-cloud 4s ease-in-out infinite alternate;
+}
+
+.irrigation-scan-beam {
+  position: absolute;
+  top: 4%;
+  left: 48%;
+  width: 120px;
+  height: 520px;
+  transform: translateX(-50%) rotate(12deg);
+  background: linear-gradient(180deg, rgba(78, 173, 213, 0.34), transparent 76%);
+  clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%);
+  animation: scan-sweep 2.1s ease-in-out infinite alternate;
+}
+
+.irrigation-agent-core {
+  position: absolute;
+  top: 11%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-full);
+  color: var(--text-bright);
+  background: rgba(8, 13, 11, 0.76);
+  border: 1px solid rgba(139, 195, 74, 0.32);
+  box-shadow: 0 18px 46px rgba(0,0,0,0.28);
+  backdrop-filter: blur(16px);
+}
+
+.irrigation-agent-core svg {
+  color: var(--primary);
+}
+
+.irrigation-agent-core span {
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 1.3px;
+}
+
+.irrigation-field {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 7%;
+  height: 56%;
+  border-radius: 52% 48% 18px 18px / 16% 16% 18px 18px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(96deg, transparent 0 42px, rgba(139, 195, 74, 0.12) 42px 48px),
+    linear-gradient(180deg, #425b2c 0%, #5d5530 52%, #4a3827 100%);
+  border: 1px solid rgba(139, 195, 74, 0.2);
+  box-shadow: inset 0 36px 70px rgba(139, 195, 74, 0.12), inset 0 -24px 80px rgba(0,0,0,0.32);
+  transition: filter 0.5s var(--ease-smooth), background 0.5s var(--ease-smooth);
+}
+
+.irrigation-scene.is-dry .irrigation-field {
+  background:
+    repeating-linear-gradient(96deg, transparent 0 42px, rgba(212, 168, 67, 0.12) 42px 48px),
+    linear-gradient(180deg, #655a2f 0%, #6a4b2c 54%, #473121 100%);
+}
+
+.irrigation-scene.water-on .irrigation-field {
+  filter: saturate(1.18) brightness(1.08);
+}
+
+.crop-row {
+  position: relative;
+  display: flex;
+  justify-content: space-around;
+  padding-top: 4.5%;
+  z-index: 2;
+}
+
+.crop-plant {
+  color: var(--primary);
+  filter: drop-shadow(0 8px 10px rgba(0,0,0,0.3));
+  animation: plant-breathe 2.6s ease-in-out infinite alternate;
+}
+
+.is-dry .crop-plant {
+  color: #9c893b;
+}
+
+.water-on .crop-plant {
+  color: #8fe14e;
+}
+
+.irrigation-main-pipe {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 20%;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, rgba(78, 173, 213, 0.18), rgba(78, 173, 213, 0.95), rgba(78, 173, 213, 0.18));
+  opacity: 0.55;
+  box-shadow: 0 0 22px rgba(78, 173, 213, 0.25);
+}
+
+.water-on .irrigation-main-pipe {
+  opacity: 1;
+  animation: pipe-flow 1s linear infinite;
+}
+
+.irrigation-sprinkler {
+  position: absolute;
+  bottom: 18%;
+  width: 8px;
+  height: 64px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #dce6d6, #8a9488);
+  border-radius: var(--radius-full);
+  z-index: 3;
+}
+
+.irrigation-sprinkler span {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(139, 195, 74, 0.32);
+  border: 1px solid rgba(139, 195, 74, 0.32);
+}
+
+.water-on .irrigation-sprinkler span::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 112px;
+  height: 112px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(78,173,213,0.2), transparent 62%);
+  animation: sprinkler-pulse 0.9s ease-in-out infinite;
+}
+
+.water-layer,
+.rain-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.water-layer i,
+.rain-layer i {
+  position: absolute;
+  left: var(--x);
+  top: 10%;
+  width: 3px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--sky-blue);
+  opacity: 0;
+  animation: water-drop 1.25s linear infinite;
+  animation-delay: var(--delay);
+}
+
+.rain-layer i {
+  top: -10%;
+  height: 34px;
+  opacity: 0.55;
+  background: rgba(78, 173, 213, 0.78);
+  animation-duration: 0.9s;
+}
+
+.irrigation-scene-metrics {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 7;
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.irrigation-scene-metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-full);
+  background: rgba(8, 13, 11, 0.72);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-light);
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.decision-badge {
+  min-height: 116px;
+  display: grid;
+  place-items: center;
+  gap: 0.55rem;
+  margin: 1rem 0;
+  border-radius: 20px;
+  background: var(--panel-muted);
+  border: 1px solid var(--glass-border);
+  color: var(--text-bright);
+}
+
+.decision-badge span {
+  font-weight: 950;
+  letter-spacing: 2px;
+}
+
+.decision-badge.irrigate { color: var(--sky-blue); border-color: rgba(78,173,213,0.35); }
+.decision-badge.warn { color: var(--sand-gold); border-color: rgba(212,168,67,0.35); }
+.decision-badge.watch { color: var(--sand-gold); border-color: rgba(212,168,67,0.28); }
+.decision-badge.rain { color: var(--sky-blue); border-color: rgba(78,173,213,0.35); }
+.decision-badge.skip { color: var(--primary); border-color: rgba(139,195,74,0.35); }
+.decision-badge.error { color: var(--terracotta); border-color: rgba(199,91,57,0.35); }
+
+.decision-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+}
+
+.decision-metrics span {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem;
+  border-radius: 14px;
+  background: var(--panel-muted);
+  border: 1px solid var(--glass-border);
+}
+
+.decision-metrics small,
+.decision-reason small {
+  color: var(--text-dim);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  font-weight: 800;
+}
+
+.decision-metrics strong {
+  color: var(--text-bright);
+  font-size: 1.04rem;
+}
+
+.decision-reason {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 16px;
+  background: var(--panel-muted);
+  border: 1px solid var(--glass-border);
+}
+
+.decision-reason p {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.decision-reason.compact p {
+  margin-bottom: 0;
+}
+
+.irrigation-error {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  color: var(--terracotta);
+  border: 1px solid rgba(199, 91, 57, 0.25);
+  background: rgba(199, 91, 57, 0.1);
+  line-height: 1.5;
+}
+
+.irrigation-timeline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.irrigation-step {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem;
+  border-radius: 16px;
+  background: var(--panel-muted);
+  border: 1px solid var(--glass-border);
+  opacity: 0.62;
+}
+
+.irrigation-step.active {
+  opacity: 1;
+  border-color: rgba(139, 195, 74, 0.34);
+  box-shadow: 0 0 0 1px rgba(139, 195, 74, 0.08);
+}
+
+.irrigation-step span {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.irrigation-step strong {
+  color: var(--text-bright);
+  font-size: 0.8rem;
+}
+
+.irrigation-step small {
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
+@keyframes drift-cloud {
+  from { transform: translateX(-8px); }
+  to { transform: translateX(16px); }
+}
+
+@keyframes scan-sweep {
+  from { left: 32%; opacity: 0.22; }
+  to { left: 68%; opacity: 0.55; }
+}
+
+@keyframes plant-breathe {
+  from { transform: translateY(0) scale(0.96); }
+  to { transform: translateY(-4px) scale(1.04); }
+}
+
+@keyframes pipe-flow {
+  from { filter: hue-rotate(0deg) brightness(1); }
+  to { filter: hue-rotate(18deg) brightness(1.25); }
+}
+
+@keyframes sprinkler-pulse {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  45% { opacity: 0.65; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes water-drop {
+  0% { opacity: 0; transform: translateY(0) rotate(14deg); }
+  20% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(260px) rotate(14deg); }
+}
+
+@media (max-width: 1280px) {
+  .irrigation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .irrigation-scene {
+    min-height: 460px;
+  }
+}
+
+@media (max-width: 760px) {
+  .irrigation-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .irrigation-section-head,
+  .irrigation-panel-title {
+    align-items: flex-start;
+  }
+
+  .irrigation-section-head {
+    flex-direction: column;
+  }
+
+  .decision-metrics,
+  .irrigation-timeline {
+    grid-template-columns: 1fr;
+  }
+}

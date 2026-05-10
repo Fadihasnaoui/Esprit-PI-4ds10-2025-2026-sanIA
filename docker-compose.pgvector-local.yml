@@ -1,0 +1,28 @@
+# Postgres with pgvector — for local dev when Windows PostgreSQL has no `vector` extension.
+# Uses host port 5433 so your existing Postgres can stay on 5432.
+#
+# Start:  docker compose -f docker-compose.pgvector-local.yml up -d
+# Stop:   docker compose -f docker-compose.pgvector-local.yml down
+#
+# Then set backend/.env:
+#   DATABASE_URL=postgresql://postgres:sania_pass@localhost:5433/sania_db
+#   POSTGRES_SERVER=localhost
+#   POSTGRES_PORT=5433
+
+services:
+  db-vector:
+    # pg15 image matches root docker-compose.yml; same pgvector extension as pg17 for this app.
+    image: pgvector/pgvector:pg15
+    container_name: sania_pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: sania_pass
+      POSTGRES_DB: sania_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - sania_pgvector_data:/var/lib/postgresql/data
+
+volumes:
+  sania_pgvector_data:
