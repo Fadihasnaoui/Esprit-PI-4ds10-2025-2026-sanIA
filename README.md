@@ -5,10 +5,8 @@ Best Project Award — Data Science Engineering, ESPRIT 2025–2026 🏆
 SanIA is an end-to-end precision farming platform that combines AI, IoT, and 3D digital twin technology to help farmers monitor crops, detect diseases, automate irrigation, and get intelligent agronomic advice — all from a single system.
 
 🎥 Demo Video
-Show Image
 
-Click the thumbnail to watch the full demo ↑
-
+https://youtu.be/wEhNvH0TgdU?si=y5pefxgq_bL0rT3V
 
 🚀 Key Features
 ModuleDescription🌿 Crop Disease DetectionCNN-based mobile app that identifies plant diseases from leaf photos in real time🏗️ 3D Digital TwinInteractive Unity-based 3D model of the farm with live IoT sensor data🤖 RAG ChatbotLLM-powered agricultural assistant using Retrieval-Augmented Generation💧 Smart IrrigationIoT-automated irrigation system triggered by soil and weather sensor data🛰️ Satellite + Sensor MonitoringField health monitoring combining satellite imagery and ground-level IoT sensors📱 Mobile AppReact Native app for disease detection, chatbot access, and IoT dashboard
